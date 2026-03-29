@@ -122,83 +122,6 @@
     .status.ok { color: #c9f7d1; border-color: rgba(64, 192, 87, 0.45); }
     .status.warn { color: #ffe2c2; border-color: rgba(255, 146, 43, 0.45); }
 
-    .loader-panel {
-      margin: 0 0 14px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(31, 36, 48, 0.9);
-      border: 1px solid var(--border);
-    }
-
-    .loader-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: baseline;
-      margin-bottom: 8px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .loader-phase {
-      font-weight: 600;
-      color: var(--text);
-    }
-
-    .loader-track {
-      position: relative;
-      height: 12px;
-      border-radius: 999px;
-      overflow: hidden;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      margin-bottom: 8px;
-    }
-
-    .loader-fill {
-      height: 100%;
-      width: 0%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(106, 169, 255, 0.72), rgba(64, 192, 87, 0.86));
-      transition: width 0.22s ease;
-    }
-
-    .loader-meta {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 10px;
-    }
-
-    .log-box {
-      max-height: 180px;
-      overflow: auto;
-      background: rgba(7, 10, 15, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 12px;
-      padding: 8px 10px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 12px;
-      line-height: 1.45;
-      white-space: pre-wrap;
-      color: #d9e3ef;
-    }
-
-    .log-line {
-      display: block;
-      margin: 0 0 4px;
-    }
-
-    .log-line.warn {
-      color: #ffd8a8;
-    }
-
-    .log-line.error {
-      color: #ffb0b0;
-    }
-
     .stage {
       position: relative;
       width: 100%;
@@ -225,7 +148,7 @@
 
     #overlay {
       pointer-events: none;
-      transform: none;
+      transform: scaleX(-1);
     }
 
     .avatar-stage {
@@ -249,6 +172,84 @@
       display: block;
       transform: none;
       pointer-events: none;
+    }
+
+
+    .loader-panel {
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(31, 36, 48, 0.9);
+      border: 1px solid var(--border);
+    }
+
+    .loader-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .loader-phase {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .loader-track {
+      position: relative;
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 8px;
+    }
+
+    .loader-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(106,169,255,0.72), rgba(64,192,87,0.88));
+      transition: width 0.18s ease;
+    }
+
+    .loader-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .log-box {
+      max-height: 140px;
+      overflow: auto;
+      background: rgba(7,10,15,0.75);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      color: #d9e3ef;
+    }
+
+    .log-line {
+      display: block;
+      margin: 0 0 4px;
+    }
+
+    .log-line.warn {
+      color: #ffd8a8;
+    }
+
+    .log-line.error {
+      color: #ffb0b0;
     }
 
     .footnote {
@@ -445,13 +446,13 @@
         <p id="status" class="status">Loading MediaPipe model…</p>
         <div class="loader-panel">
           <div class="loader-header">
-            <span class="loader-phase" id="loaderPhase">Booting page…</span>
+            <span id="loaderPhase" class="loader-phase">Booting page…</span>
             <span id="loaderPercent">0%</span>
           </div>
           <div class="loader-track"><div id="loaderFill" class="loader-fill"></div></div>
           <div class="loader-meta">
             <span id="loaderEta">Estimated remaining: ~12 s</span>
-            <span id="loaderNote">Heuristic estimate</span>
+            <span id="loaderNote">Startup trace</span>
           </div>
           <div id="startupLog" class="log-box" aria-live="polite"></div>
         </div>
@@ -806,9 +807,24 @@
       loaderFillEl.style.width = `${loadingProgress.toFixed(1)}%`;
       loaderPercentEl.textContent = `${Math.round(loadingProgress)}%`;
       loaderPhaseEl.textContent = loadingPhase;
-      loaderEtaEl.textContent = loadingEtaSeconds > 0
-        ? `Estimated remaining: ~${Math.max(1, Math.round(loadingEtaSeconds))} s`
+      const remaining = Math.max(0, Math.round((100 - loadingProgress) / 8));
+      loaderEtaEl.textContent = remaining > 0
+        ? `Estimated remaining: ~${remaining} s`
         : "Estimated remaining: <1 s";
+    }
+
+    function setLoadingStage(progress, phase, note = "Startup trace") {
+      loadingProgress = Math.max(loadingProgress, progress);
+      loadingPhase = phase;
+      loaderNoteEl.textContent = note;
+      renderLoader();
+    }
+
+    function finishLoading(note = "Ready") {
+      loadingProgress = 100;
+      loadingPhase = "Ready";
+      loaderNoteEl.textContent = note;
+      renderLoader();
     }
 
     function addLog(message, level = "info") {
@@ -818,45 +834,6 @@
       line.textContent = `[${time}] ${message}`;
       startupLogEl.appendChild(line);
       startupLogEl.scrollTop = startupLogEl.scrollHeight;
-    }
-
-    function stopLoadingCreep() {
-      if (loadingTimer != null) {
-        clearInterval(loadingTimer);
-        loadingTimer = null;
-      }
-    }
-
-    function startLoadingCreep(maxProgress, startingEta) {
-      stopLoadingCreep();
-      loadingEtaSeconds = startingEta;
-      renderLoader();
-      loadingTimer = window.setInterval(() => {
-        if (loadingProgress < maxProgress) {
-          loadingProgress = Math.min(maxProgress, loadingProgress + 0.35);
-        }
-        if (loadingEtaSeconds > 1) {
-          loadingEtaSeconds -= 0.25;
-        }
-        renderLoader();
-      }, 250);
-    }
-
-    function setLoadingStage(progress, phase, etaSeconds, note = "Heuristic estimate") {
-      loadingProgress = Math.max(loadingProgress, progress);
-      loadingPhase = phase;
-      loadingEtaSeconds = etaSeconds;
-      loaderNoteEl.textContent = note;
-      renderLoader();
-    }
-
-    function finishLoadingStage(note = "Ready") {
-      stopLoadingCreep();
-      loadingProgress = 100;
-      loadingPhase = "Ready";
-      loadingEtaSeconds = 0;
-      loaderNoteEl.textContent = note;
-      renderLoader();
     }
 
     function setStatus(message, kind = "") {
@@ -892,7 +869,7 @@
     function getPoint(landmarks, idx, width = 1, height = 1) {
       const rect = getVideoDrawRect();
       return {
-        x: rect.x + (1 - landmarks[idx].x) * rect.width,
+        x: rect.x + landmarks[idx].x * rect.width,
         y: rect.y + landmarks[idx].y * rect.height
       };
     }
@@ -1528,8 +1505,8 @@
       drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS, featureStyle.irisRight);
       drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, featureStyle.lips);
       drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_NOSE, featureStyle.nose);
-      drawLandmarkPoints(landmarks, null, { radius: 1.35, fillStyle: "rgba(255, 52, 52, 0.96)" });
       if (showFaceIds) {
+        drawLandmarkPoints(landmarks, getFaceLabelIndices(), { radius: 1.35, fillStyle: "rgba(255, 52, 52, 0.96)" });
         drawLandmarkLabels(landmarks, getFaceLabelIndices(), { font: "10px system-ui, sans-serif", fillStyle: "rgba(255, 52, 52, 0.96)" });
       }
     }
@@ -1846,6 +1823,7 @@
     }
 
     function processCurrentVideoFrame(timestamp) {
+      updateVideoDrawRect();
       const faceResult = faceLandmarker.detectForVideo(video, timestamp);
 
       if (!state.cachedHandResult || timestamp - state.lastHandProcessTime >= HAND_UPDATE_INTERVAL_MS) {
@@ -1905,10 +1883,12 @@
 
     async function startCamera() {
       if (!faceLandmarker || !handLandmarker || !poseLandmarker) {
+        addLog("Camera start requested before the models were ready.", "warn");
         setStatus("The models are still loading. Please wait a moment.", "warn");
         return;
       }
       try {
+        addLog("Requesting camera access…");
         const mobile = window.matchMedia("(max-width: 900px)").matches;
         const constraints = {
           audio: false,
@@ -1931,8 +1911,10 @@
         stopBtn.disabled = false;
         calibrateBtn.disabled = false;
         distanceRefBtn.disabled = false;
+        addLog(`Camera stream started (${video.videoWidth || "?"}×${video.videoHeight || "?"}).`);
         setStatus("Camera started. Look straight at the camera and click ‘Set neutral pose’. Use ‘Set reference distance’ if you want an approximate centimetre estimate.", "ok");
       } catch (error) {
+        addLog(`Camera start failed: ${error?.name || "Error"} — ${describeCameraError(error)}`, "error");
         setStatus(`Could not start the camera: ${describeCameraError(error)}`, "warn");
       }
     }
@@ -2003,6 +1985,7 @@
       stopBtn.disabled = true;
       calibrateBtn.disabled = true;
       distanceRefBtn.disabled = true;
+      addLog("Camera stopped.");
       setStatus("Camera stopped.");
     }
 
@@ -2047,8 +2030,19 @@
 
     async function init() {
       try {
+        renderLoader();
+        addLog("Booting page.");
+        setLoadingStage(5, "Initialising 3D preview…");
         initAvatar3D();
+        addLog("3D preview initialised.");
+
+        setLoadingStage(15, "Resolving MediaPipe runtime…");
+        addLog("Loading MediaPipe runtime and WASM files…");
         const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+        addLog("MediaPipe runtime resolved.");
+
+        setLoadingStage(35, "Loading face model…");
+        addLog("Starting Face Landmarker model load…");
         faceLandmarker = await FaceLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: MODEL_URL },
           runningMode: "VIDEO",
@@ -2059,6 +2053,10 @@
           outputFaceBlendshapes: true,
           outputFacialTransformationMatrixes: true
         });
+        addLog("Face model ready.");
+
+        setLoadingStage(60, "Loading hand model…");
+        addLog("Starting Hand Landmarker model load…");
         handLandmarker = await HandLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: HAND_MODEL_URL },
           runningMode: "VIDEO",
@@ -2067,6 +2065,10 @@
           minHandPresenceConfidence: 0.5,
           minTrackingConfidence: 0.5
         });
+        addLog("Hand model ready.");
+
+        setLoadingStage(82, "Loading pose model…");
+        addLog("Starting Pose Landmarker model load…");
         poseLandmarker = await PoseLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: POSE_MODEL_URL },
           runningMode: "VIDEO",
@@ -2075,26 +2077,40 @@
           minPosePresenceConfidence: 0.5,
           minTrackingConfidence: 0.5
         });
+        addLog("Pose model ready.");
+
+        setLoadingStage(95, "Finalising UI…");
         resizeOverlay();
         resizeAvatar3D();
         resetPoseUI();
         resetDerivedState();
         clearMetricsForNoFace();
+
         startBtn.disabled = false;
         distanceRefBtn.disabled = true;
+        finishLoading("Models loaded");
+        addLog("Initialisation complete.");
         setStatus("Face, hand, and pose models are ready. Click ‘Start camera’.", "ok");
       } catch (error) {
         startBtn.disabled = true;
         stopBtn.disabled = true;
         calibrateBtn.disabled = true;
         distanceRefBtn.disabled = true;
+        setLoadingStage(100, "Loading failed", "Startup stopped");
+        addLog(`Initialisation failed: ${error?.message || String(error)}`, "error");
         setStatus(`Could not load the MediaPipe models: ${error.message}`, "warn");
         console.error(error);
       }
     }
 
-    video.addEventListener("loadedmetadata", resizeOverlay);
-    video.addEventListener("resize", resizeOverlay);
+    video.addEventListener("loadedmetadata", () => {
+      addLog(`Video metadata loaded (${video.videoWidth || "?"}×${video.videoHeight || "?"}).`);
+      resizeOverlay();
+    });
+    video.addEventListener("resize", () => {
+      addLog(`Video resized (${video.videoWidth || "?"}×${video.videoHeight || "?"}).`);
+      resizeOverlay();
+    });
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
         stopFrameScheduling();
@@ -2113,7 +2129,15 @@
     });
     window.addEventListener("resize", resizeOverlay);
     window.addEventListener("resize", resizeAvatar3D);
+    window.addEventListener("error", (event) => {
+      addLog(`Unhandled error: ${event.message}`, "error");
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      const reason = event.reason?.message || String(event.reason);
+      addLog(`Unhandled rejection: ${reason}`, "error");
+    });
 
+    renderLoader();
     init();
   </script>
 </body>
