@@ -758,6 +758,7 @@
       lastHandProcessTime: -Infinity,
       lastPoseProcessTime: -Infinity,
       lastHandLabelTime: -Infinity,
+      cachedFaceResult: null,
       cachedHandResult: null,
       cachedPoseResult: null,
       lastInferenceTimestamp: -Infinity,
@@ -1756,6 +1757,7 @@
       state.lastHandProcessTime = -Infinity;
       state.lastPoseProcessTime = -Infinity;
       state.lastHandLabelTime = -Infinity;
+      state.cachedFaceResult = null;
       state.cachedHandResult = null;
       state.cachedPoseResult = null;
       state.loggedFirstFrame = false;
@@ -1768,6 +1770,7 @@
         state.loggedFirstFrame = true;
       }
       const faceResult = faceLandmarker.detectForVideo(video, timestamp);
+      state.cachedFaceResult = faceResult;
 
       if (!state.cachedHandResult || timestamp - state.lastHandProcessTime >= HAND_UPDATE_INTERVAL_MS) {
         state.cachedHandResult = handLandmarker.detectForVideo(video, timestamp);
@@ -1925,30 +1928,29 @@
     }
 
     function calibrateNeutralPose() {
-      if (!faceLandmarker || video.readyState < 2) {
-        setStatus("Start the camera before calibrating.", "warn");
+      if (!faceLandmarker || video.readyState < 2 || !state.cachedFaceResult) {
+        setStatus("Wait until a live face frame has been processed, then try again.", "warn");
         return;
       }
-      const result = faceLandmarker.detectForVideo(video, performance.now());
-      const rotation = matrixToRotation3x3(result?.facialTransformationMatrixes?.[0]);
+      const rotation = matrixToRotation3x3(state.cachedFaceResult?.facialTransformationMatrixes?.[0]);
       if (!rotation) {
-        setStatus("No face was detected. Look at the camera and try again.", "warn");
+        setStatus("No face was detected in the latest live frame. Look at the camera and try again.", "warn");
         return;
       }
       neutralRotation = rotation;
       neutralState.textContent = "Manually set";
+      addLog("Neutral pose captured from the latest live frame.");
       setStatus("Neutral pose stored.", "ok");
     }
 
     function setReferenceDistance() {
-      if (!faceLandmarker || video.readyState < 2) {
-        setStatus("Start the camera before setting a reference distance.", "warn");
+      if (!faceLandmarker || video.readyState < 2 || !state.cachedFaceResult) {
+        setStatus("Wait until a live face frame has been processed, then try again.", "warn");
         return;
       }
-      const result = faceLandmarker.detectForVideo(video, performance.now());
-      const faceWidth = currentFaceWidthPxFromResult(result);
+      const faceWidth = currentFaceWidthPxFromResult(state.cachedFaceResult);
       if (!faceWidth) {
-        setStatus("No face was detected. Look at the camera and try again.", "warn");
+        setStatus("No face was detected in the latest live frame. Look at the camera and try again.", "warn");
         return;
       }
       const answer = window.prompt("Current face-to-camera distance in cm:", referenceDistanceCm ? String(referenceDistanceCm) : "60");
@@ -1960,6 +1962,7 @@
       }
       referenceDistanceCm = value;
       referenceFaceWidthPx = faceWidth;
+      addLog(`Reference distance stored from the latest live frame (${value.toFixed(1)} cm).`);
       setStatus("Reference distance stored. The distance readout now uses that calibration.", "ok");
     }
 
