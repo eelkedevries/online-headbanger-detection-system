@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Online Headbanger Detection System</title>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.js" crossorigin="anonymous"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -17,51 +16,71 @@
       --ok: #40c057;
       --warn: #ff922b;
       --accent: #6aa9ff;
+      --accent-soft: rgba(106, 169, 255, 0.18);
+      --accent-line: rgba(175, 205, 255, 0.22);
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: linear-gradient(180deg, #0b0d11 0%, #121722 100%);
       color: var(--text);
     }
+
     .app {
-      width: min(1180px, calc(100vw - 32px));
-      margin: 24px auto 40px;
+      width: min(1340px, calc(100vw - 28px));
+      margin: 18px auto 32px;
     }
+
     .header, .panel, .metric, .controls {
       background: rgba(23, 26, 33, 0.92);
       border: 1px solid var(--border);
       border-radius: 18px;
       backdrop-filter: blur(8px);
     }
-    .header { padding: 24px; margin-bottom: 18px; }
+
+    .header {
+      padding: 22px;
+      margin-bottom: 16px;
+    }
+
     h1 {
       margin: 0 0 8px;
       font-size: clamp(28px, 4vw, 42px);
       line-height: 1.1;
     }
+
     .subtitle {
       margin: 0;
       color: var(--muted);
       font-size: 15px;
       line-height: 1.5;
-      max-width: 80ch;
+      max-width: 95ch;
     }
+
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.8fr);
-      gap: 18px;
+      grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+      gap: 16px;
       align-items: start;
     }
-    .panel { padding: 18px; }
+
+    .panel {
+      padding: 16px;
+      position: sticky;
+      top: 14px;
+    }
+
     .controls {
-      padding: 14px;
+      padding: 12px;
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 12px;
     }
+
     button {
       appearance: none;
       border: 1px solid var(--border);
@@ -73,14 +92,22 @@
       cursor: pointer;
       transition: transform 0.12s ease, border-color 0.12s ease;
     }
+
     button:hover:not(:disabled) {
       transform: translateY(-1px);
       border-color: var(--accent);
     }
-    button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
     #startBtn { background: rgba(64, 192, 87, 0.14); border-color: rgba(64, 192, 87, 0.45); }
     #stopBtn { background: rgba(250, 82, 82, 0.14); border-color: rgba(250, 82, 82, 0.45); }
     #calibrateBtn { background: rgba(106, 169, 255, 0.14); border-color: rgba(106, 169, 255, 0.45); }
+    #distanceRefBtn { background: rgba(255, 146, 43, 0.14); border-color: rgba(255, 146, 43, 0.45); }
+
     .status {
       margin: 0 0 14px;
       padding: 12px 14px;
@@ -91,17 +118,20 @@
       line-height: 1.5;
       min-height: 48px;
     }
+
     .status.ok { color: #c9f7d1; border-color: rgba(64, 192, 87, 0.45); }
     .status.warn { color: #ffe2c2; border-color: rgba(255, 146, 43, 0.45); }
+
     .stage {
       position: relative;
       width: 100%;
-      aspect-ratio: 16 / 9;
+      aspect-ratio: 16 / 10;
       border-radius: 18px;
       overflow: hidden;
       background: #05070b;
       border: 1px solid var(--border);
     }
+
     video, canvas {
       position: absolute;
       inset: 0;
@@ -109,42 +139,93 @@
       height: 100%;
       display: block;
     }
-    video { object-fit: cover; background: #05070b; }
-    .grid { display: grid; gap: 12px; }
+
+    video {
+      object-fit: cover;
+      background: #05070b;
+      transform: scaleX(-1);
+    }
+
+    canvas {
+      pointer-events: none;
+      transform: scaleX(-1);
+    }
+
+    .footnote {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+    }
+
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
-    .metric { padding: 14px; }
-    .metric h2, .metric h3 {
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 14px;
+    }
+
+    .metric h2,
+    .metric h3 {
       margin: 0 0 10px;
       font-size: 15px;
       font-weight: 700;
       letter-spacing: 0.02em;
     }
+
     .metric-value {
       font-size: 28px;
       font-weight: 700;
       line-height: 1;
       margin-bottom: 8px;
     }
-    .muted { color: var(--muted); font-size: 13px; line-height: 1.45; }
-    .bar-block { display: grid; gap: 8px; margin-bottom: 12px; }
+
+    .metric-value.small {
+      font-size: 22px;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .bar-block {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
     .bar-label {
       display: flex;
       justify-content: space-between;
       gap: 12px;
       font-size: 14px;
     }
+
     .bar-track {
       position: relative;
-      height: 14px;
+      height: 12px;
       border-radius: 999px;
       background: linear-gradient(90deg, rgba(106,169,255,0.08) 0%, rgba(255,255,255,0.05) 50%, rgba(106,169,255,0.08) 100%);
       overflow: hidden;
       border: 1px solid rgba(255,255,255,0.08);
     }
+
     .bar-track::after {
       content: "";
       position: absolute;
@@ -152,8 +233,9 @@
       bottom: -1px;
       left: calc(50% - 1px);
       width: 2px;
-      background: rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.18);
     }
+
     .bar-fill {
       position: absolute;
       top: 0;
@@ -163,6 +245,7 @@
       background: linear-gradient(90deg, rgba(64,192,87,0.65), rgba(106,169,255,0.95));
       border-radius: 999px;
     }
+
     .kv {
       display: grid;
       grid-template-columns: max-content 1fr;
@@ -170,18 +253,76 @@
       align-items: baseline;
       font-size: 14px;
     }
-    .kv .key { color: var(--muted); }
-    .footnote {
-      margin-top: 12px;
+
+    .kv .key {
+      color: var(--muted);
+    }
+
+    .section-label {
+      margin: 2px 0 10px;
       font-size: 12px;
       color: var(--muted);
-      line-height: 1.5;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
-    @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
-    @media (max-width: 560px) {
-      .app { width: min(100vw - 20px, 1180px); margin-top: 10px; }
-      .header, .panel { padding: 14px; }
-      .grid-2 { grid-template-columns: 1fr; }
+
+    .mini-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 48px;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .mini-row .label {
+      color: var(--muted);
+    }
+
+    .mini-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .mini-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255, 174, 107, 0.85), rgba(106, 169, 255, 0.95));
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(106, 169, 255, 0.35);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 1080px) {
+      .layout { grid-template-columns: 1fr; }
+      .panel { position: static; }
+    }
+
+    @media (max-width: 640px) {
+      .app { width: min(100vw - 18px, 1340px); margin-top: 10px; }
+      .header, .panel, .metric { padding: 14px; }
+      .grid-2, .grid-3, .two-col { grid-template-columns: 1fr; }
+      .mini-row { grid-template-columns: 90px 1fr 42px; }
     }
   </style>
 </head>
@@ -189,23 +330,44 @@
   <main class="app">
     <section class="header">
       <h1>Online Headbanger Detection System</h1>
-      <p class="subtitle">Single-file browser demo for basic head tracking on a static GitHub Pages site. It uses MediaPipe Face Landmarker in video mode, tracks one face, draws the face mesh, and reports a neutral-pose-calibrated yaw, pitch, and roll estimate.</p>
+      <p class="subtitle">Static browser demo using MediaPipe Face Landmarker. This version adds pose, geometry, expression, distance, movement, frequency, and behavioural summary measures on top of the face overlay.</p>
     </section>
+
     <div class="layout">
       <section class="panel">
         <div class="controls">
           <button id="startBtn" type="button" disabled>Start camera</button>
           <button id="stopBtn" type="button" disabled>Stop camera</button>
           <button id="calibrateBtn" type="button" disabled>Set neutral pose</button>
+          <button id="distanceRefBtn" type="button" disabled>Set reference distance</button>
         </div>
         <p id="status" class="status">Loading MediaPipe model…</p>
         <div class="stage">
-          <video id="video" playsinline muted></video>
+          <video id="video" playsinline autoplay muted></video>
           <canvas id="overlay"></canvas>
         </div>
-        <p class="footnote">GitHub Pages runs over HTTPS, which allows webcam access. The browser will still ask for permission.</p>
+        <p class="footnote">Distance remains approximate because this is monocular webcam video. Frequency and event measures are rolling estimates and become more stable after a few seconds of movement.</p>
       </section>
+
       <section class="grid">
+        <div class="grid-3">
+          <div class="metric">
+            <h3>Tracking</h3>
+            <div class="metric-value small" id="trackingState">Waiting</div>
+            <div class="muted" id="trackingHint">Start the camera to begin tracking.</div>
+          </div>
+          <div class="metric">
+            <h3>Current action</h3>
+            <div class="metric-value small" id="currentAction">Still</div>
+            <div class="muted">Instant classification from pose velocity.</div>
+          </div>
+          <div class="metric">
+            <h3>Frame rate</h3>
+            <div class="metric-value small" id="fpsValue">0</div>
+            <div class="muted">Estimated from the animation loop.</div>
+          </div>
+        </div>
+
         <div class="metric">
           <h2>Head pose</h2>
           <div class="bar-block">
@@ -220,38 +382,143 @@
             <div class="bar-label"><span>Roll</span><span id="rollValue">0.0°</span></div>
             <div class="bar-track"><div id="rollBar" class="bar-fill"></div></div>
           </div>
-          <p class="muted">Values are relative to the stored neutral pose. Click <strong>Set neutral pose</strong> while looking straight at the camera.</p>
+          <div class="two-col">
+            <div class="kv">
+              <div class="key">Angular speed</div><div id="angularSpeedValue">0.0 °/s</div>
+              <div class="key">Angular acceleration</div><div id="angularAccelValue">0.0 °/s²</div>
+              <div class="key">Movement amplitude</div><div id="movementAmplitudeValue">0.0 °</div>
+              <div class="key">Peak excursion</div><div id="peakExcursionValue">0.0 °</div>
+            </div>
+            <div class="kv">
+              <div class="key">Range of motion (yaw)</div><div id="romYawValue">0.0 °</div>
+              <div class="key">Range of motion (pitch)</div><div id="romPitchValue">0.0 °</div>
+              <div class="key">Range of motion (roll)</div><div id="romRollValue">0.0 °</div>
+              <div class="key">Total movement</div><div id="totalMovementValue">0.0 °</div>
+            </div>
+          </div>
         </div>
+
         <div class="grid-2">
           <div class="metric">
-            <h3>Tracking</h3>
-            <div class="metric-value" id="trackingState">Waiting</div>
-            <div class="muted" id="trackingHint">Start the camera to begin tracking.</div>
+            <h3>Repetition frequency</h3>
+            <div class="kv">
+              <div class="key">Nodding</div><div id="nodFreqValue">0.00 Hz</div>
+              <div class="key">Shaking</div><div id="shakeFreqValue">0.00 Hz</div>
+              <div class="key">Tilting</div><div id="tiltFreqValue">0.00 Hz</div>
+              <div class="key">Headbanging</div><div id="headbangFreqValue">0.00 Hz</div>
+            </div>
           </div>
           <div class="metric">
-            <h3>Frame rate</h3>
-            <div class="metric-value" id="fpsValue">0</div>
-            <div class="muted">Estimated from the animation loop.</div>
+            <h3>Distance and depth proxy</h3>
+            <div class="metric-value small" id="distanceValue">–</div>
+            <div class="muted" id="distanceHint">Approximate only. Set a reference distance for a rough centimetre estimate.</div>
+            <div class="kv" style="margin-top: 10px;">
+              <div class="key">Distance mode</div><div id="distanceMode">Proxy only</div>
+              <div class="key">Face width</div><div id="faceWidthPx">–</div>
+              <div class="key">Face height</div><div id="faceHeightPx">–</div>
+              <div class="key">Inter-eye distance</div><div id="interEyePxValue">–</div>
+              <div class="key">Iris diameter proxy</div><div id="irisDiameterPxValue">–</div>
+            </div>
           </div>
         </div>
+
         <div class="metric">
-          <h3>Debug</h3>
-          <div class="kv">
-            <div class="key">Face centre X</div><div id="faceX">–</div>
-            <div class="key">Face centre Y</div><div id="faceY">–</div>
-            <div class="key">Jaw open</div><div id="jawOpen">–</div>
-            <div class="key">Neutral pose</div><div id="neutralState">Not set</div>
+          <h3>Face geometry</h3>
+          <div class="two-col">
+            <div class="kv">
+              <div class="key">Mouth width</div><div id="mouthWidthValue">–</div>
+              <div class="key">Mouth height</div><div id="mouthHeightValue">–</div>
+              <div class="key">Mouth aspect ratio</div><div id="mouthAspectValue">–</div>
+              <div class="key">Eye aspect ratio (left)</div><div id="earLeftValue">–</div>
+              <div class="key">Eye aspect ratio (right)</div><div id="earRightValue">–</div>
+            </div>
+            <div class="kv">
+              <div class="key">Eyebrow height (left)</div><div id="browLeftValue">–</div>
+              <div class="key">Eyebrow height (right)</div><div id="browRightValue">–</div>
+              <div class="key">Face width/height ratio</div><div id="faceRatioValue">–</div>
+              <div class="key">Screen translation X</div><div id="faceX">–</div>
+              <div class="key">Screen translation Y</div><div id="faceY">–</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric">
+          <h3>Expressions</h3>
+          <div class="mini-row"><div class="label">Blink</div><div class="mini-track"><div id="exprBlinkBar" class="mini-fill"></div></div><div id="exprBlinkValue">0%</div></div>
+          <div class="mini-row"><div class="label">Eye openness</div><div class="mini-track"><div id="exprOpenBar" class="mini-fill"></div></div><div id="exprOpenValue">0%</div></div>
+          <div class="mini-row"><div class="label">Brow raise</div><div class="mini-track"><div id="exprBrowRaiseBar" class="mini-fill"></div></div><div id="exprBrowRaiseValue">0%</div></div>
+          <div class="mini-row"><div class="label">Brow furrow</div><div class="mini-track"><div id="exprBrowFurrowBar" class="mini-fill"></div></div><div id="exprBrowFurrowValue">0%</div></div>
+          <div class="mini-row"><div class="label">Smile</div><div class="mini-track"><div id="exprSmileBar" class="mini-fill"></div></div><div id="exprSmileValue">0%</div></div>
+          <div class="mini-row"><div class="label">Lip press</div><div class="mini-track"><div id="exprLipPressBar" class="mini-fill"></div></div><div id="exprLipPressValue">0%</div></div>
+          <div class="mini-row"><div class="label">Lip stretch</div><div class="mini-track"><div id="exprLipStretchBar" class="mini-fill"></div></div><div id="exprLipStretchValue">0%</div></div>
+          <div class="mini-row"><div class="label">Cheek puff</div><div class="mini-track"><div id="exprCheekPuffBar" class="mini-fill"></div></div><div id="exprCheekPuffValue">0%</div></div>
+          <div class="mini-row"><div class="label">Jaw open</div><div class="mini-track"><div id="exprJawOpenBar" class="mini-fill"></div></div><div id="exprJawOpenValue">0%</div></div>
+          <div class="mini-row"><div class="label">Squint</div><div class="mini-track"><div id="exprSquintBar" class="mini-fill"></div></div><div id="exprSquintValue">0%</div></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="metric">
+            <h3>Behaviour summary</h3>
+            <div class="kv">
+              <div class="key">Time moving</div><div id="movingTimeValue">0.0 s</div>
+              <div class="key">Time still</div><div id="stillTimeValue">0.0 s</div>
+              <div class="key">Movement bouts</div><div id="movementBoutsValue">0</div>
+              <div class="key">Average bout duration</div><div id="avgBoutValue">0.0 s</div>
+              <div class="key">Maximum head speed</div><div id="maxHeadSpeedValue">0.0 °/s</div>
+              <div class="key">Cumulative movement load</div><div id="movementLoadValue">0.0 °</div>
+              <div class="key">Left/right yaw balance</div><div id="yawBalanceValue">–</div>
+            </div>
+          </div>
+          <div class="metric">
+            <h3>Event classification</h3>
+            <div class="kv">
+              <div class="key">Nodding bouts</div><div id="eventNodCount">0</div>
+              <div class="key">Shaking bouts</div><div id="eventShakeCount">0</div>
+              <div class="key">Tilting bouts</div><div id="eventTiltCount">0</div>
+              <div class="key">Headbanging bouts</div><div id="eventHeadbangCount">0</div>
+              <div class="key">Neutral pose</div><div id="neutralState">Not set</div>
+            </div>
           </div>
         </div>
       </section>
     </div>
   </main>
 
-  <script>
+  <script type="module">
+    import {
+      FaceLandmarker,
+      FilesetResolver,
+      DrawingUtils
+    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs";
+
     const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
-    const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm";
+    const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm";
     const RAD2DEG = 180 / Math.PI;
     const MAX_BAR_ANGLE = 40;
+    const HISTORY_WINDOW_MS = 10000;
+    const MOTION_WINDOW_MS = 8000;
+    const MOVING_THRESHOLD = 18;
+    const HEADBANG_SPEED_THRESHOLD = 110;
+
+    const LM = {
+      noseTip: 1,
+      mouthLeft: 61,
+      mouthRight: 291,
+      mouthTop: 13,
+      mouthBottom: 14,
+      leftEyeOuter: 33,
+      leftEyeInner: 133,
+      leftEyeTop: 159,
+      leftEyeBottom: 145,
+      rightEyeOuter: 362,
+      rightEyeInner: 263,
+      rightEyeTop: 386,
+      rightEyeBottom: 374,
+      leftBrow: [70, 63, 105, 66, 107],
+      rightBrow: [336, 296, 334, 293, 300],
+      leftIris: [468, 469, 470, 471, 472],
+      rightIris: [473, 474, 475, 476, 477]
+    };
 
     const video = document.getElementById("video");
     const overlay = document.getElementById("overlay");
@@ -260,6 +527,7 @@
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const calibrateBtn = document.getElementById("calibrateBtn");
+    const distanceRefBtn = document.getElementById("distanceRefBtn");
     const statusEl = document.getElementById("status");
 
     const yawValue = document.getElementById("yawValue");
@@ -271,23 +539,101 @@
 
     const trackingState = document.getElementById("trackingState");
     const trackingHint = document.getElementById("trackingHint");
+    const currentActionEl = document.getElementById("currentAction");
     const fpsValue = document.getElementById("fpsValue");
+
+    const angularSpeedValue = document.getElementById("angularSpeedValue");
+    const angularAccelValue = document.getElementById("angularAccelValue");
+    const movementAmplitudeValue = document.getElementById("movementAmplitudeValue");
+    const peakExcursionValue = document.getElementById("peakExcursionValue");
+    const romYawValue = document.getElementById("romYawValue");
+    const romPitchValue = document.getElementById("romPitchValue");
+    const romRollValue = document.getElementById("romRollValue");
+    const totalMovementValue = document.getElementById("totalMovementValue");
+
+    const nodFreqValue = document.getElementById("nodFreqValue");
+    const shakeFreqValue = document.getElementById("shakeFreqValue");
+    const tiltFreqValue = document.getElementById("tiltFreqValue");
+    const headbangFreqValue = document.getElementById("headbangFreqValue");
+
+    const distanceValue = document.getElementById("distanceValue");
+    const distanceHint = document.getElementById("distanceHint");
+    const distanceMode = document.getElementById("distanceMode");
+    const faceWidthPx = document.getElementById("faceWidthPx");
+    const faceHeightPx = document.getElementById("faceHeightPx");
+    const interEyePxValue = document.getElementById("interEyePxValue");
+    const irisDiameterPxValue = document.getElementById("irisDiameterPxValue");
+
+    const mouthWidthValue = document.getElementById("mouthWidthValue");
+    const mouthHeightValue = document.getElementById("mouthHeightValue");
+    const mouthAspectValue = document.getElementById("mouthAspectValue");
+    const earLeftValue = document.getElementById("earLeftValue");
+    const earRightValue = document.getElementById("earRightValue");
+    const browLeftValue = document.getElementById("browLeftValue");
+    const browRightValue = document.getElementById("browRightValue");
+    const faceRatioValue = document.getElementById("faceRatioValue");
     const faceX = document.getElementById("faceX");
     const faceY = document.getElementById("faceY");
-    const jawOpen = document.getElementById("jawOpen");
+
+    const movingTimeValue = document.getElementById("movingTimeValue");
+    const stillTimeValue = document.getElementById("stillTimeValue");
+    const movementBoutsValue = document.getElementById("movementBoutsValue");
+    const avgBoutValue = document.getElementById("avgBoutValue");
+    const maxHeadSpeedValue = document.getElementById("maxHeadSpeedValue");
+    const movementLoadValue = document.getElementById("movementLoadValue");
+    const yawBalanceValue = document.getElementById("yawBalanceValue");
+
+    const eventNodCount = document.getElementById("eventNodCount");
+    const eventShakeCount = document.getElementById("eventShakeCount");
+    const eventTiltCount = document.getElementById("eventTiltCount");
+    const eventHeadbangCount = document.getElementById("eventHeadbangCount");
     const neutralState = document.getElementById("neutralState");
 
-    let FaceLandmarkerClass = null;
-    let FilesetResolverClass = null;
-    let DrawingUtilsClass = null;
+    const expressionEls = {
+      blink: { value: document.getElementById("exprBlinkValue"), bar: document.getElementById("exprBlinkBar") },
+      eyeOpen: { value: document.getElementById("exprOpenValue"), bar: document.getElementById("exprOpenBar") },
+      browRaise: { value: document.getElementById("exprBrowRaiseValue"), bar: document.getElementById("exprBrowRaiseBar") },
+      browFurrow: { value: document.getElementById("exprBrowFurrowValue"), bar: document.getElementById("exprBrowFurrowBar") },
+      smile: { value: document.getElementById("exprSmileValue"), bar: document.getElementById("exprSmileBar") },
+      lipPress: { value: document.getElementById("exprLipPressValue"), bar: document.getElementById("exprLipPressBar") },
+      lipStretch: { value: document.getElementById("exprLipStretchValue"), bar: document.getElementById("exprLipStretchBar") },
+      cheekPuff: { value: document.getElementById("exprCheekPuffValue"), bar: document.getElementById("exprCheekPuffBar") },
+      jawOpen: { value: document.getElementById("exprJawOpenValue"), bar: document.getElementById("exprJawOpenBar") },
+      squint: { value: document.getElementById("exprSquintValue"), bar: document.getElementById("exprSquintBar") }
+    };
+
     let faceLandmarker = null;
     let drawingUtils = null;
     let mediaStream = null;
     let animationFrameId = null;
     let lastVideoTime = -1;
+
+    let referenceDistanceCm = null;
+    let referenceFaceWidthPx = null;
     let neutralRotation = null;
+
     let lastFpsTime = performance.now();
     let frameCounter = 0;
+
+    const state = {
+      prevPose: null,
+      prevSpeed: 0,
+      prevTime: null,
+      totalMovement: 0,
+      movingTimeMs: 0,
+      stillTimeMs: 0,
+      maxHeadSpeed: 0,
+      history: [],
+      leftYawMotion: 0,
+      rightYawMotion: 0,
+      isMoving: false,
+      boutStartTime: null,
+      boutDurationsMs: [],
+      boutAxisMotion: { yaw: 0, pitch: 0, roll: 0 },
+      boutPeakSpeed: 0,
+      currentAction: "Still",
+      eventCounts: { nodding: 0, shaking: 0, tilting: 0, headbanging: 0 }
+    };
 
     function setStatus(message, kind = "") {
       statusEl.textContent = message;
@@ -296,6 +642,30 @@
 
     function clamp(value, min, max) {
       return Math.min(max, Math.max(min, value));
+    }
+
+    function mean(values) {
+      return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+    }
+
+    function dist(a, b) {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      return Math.hypot(dx, dy);
+    }
+
+    function averagePoint(landmarks, indices, width = 1, height = 1) {
+      let x = 0;
+      let y = 0;
+      for (const idx of indices) {
+        x += landmarks[idx].x * width;
+        y += landmarks[idx].y * height;
+      }
+      return { x: x / indices.length, y: y / indices.length };
+    }
+
+    function getPoint(landmarks, idx, width = 1, height = 1) {
+      return { x: landmarks[idx].x * width, y: landmarks[idx].y * height };
     }
 
     function setBar(barEl, angleDeg) {
@@ -309,20 +679,23 @@
       return `${value >= 0 ? "" : "-"}${Math.abs(value).toFixed(1)}°`;
     }
 
-    function updatePoseUI(pose) {
-      yawValue.textContent = formatAngle(pose.yaw);
-      pitchValue.textContent = formatAngle(pose.pitch);
-      rollValue.textContent = formatAngle(pose.roll);
-      setBar(yawBar, pose.yaw);
-      setBar(pitchBar, pose.pitch);
-      setBar(rollBar, pose.roll);
+    function formatPct01(value) {
+      return `${Math.round(clamp(value, 0, 1) * 100)}%`;
+    }
+
+    function updateMiniMetric(name, value01) {
+      const v = clamp(value01, 0, 1);
+      expressionEls[name].bar.style.width = `${v * 100}%`;
+      expressionEls[name].value.textContent = formatPct01(v);
     }
 
     function resetPoseUI() {
-      updatePoseUI({ yaw: 0, pitch: 0, roll: 0 });
-      faceX.textContent = "–";
-      faceY.textContent = "–";
-      jawOpen.textContent = "–";
+      yawValue.textContent = "0.0°";
+      pitchValue.textContent = "0.0°";
+      rollValue.textContent = "0.0°";
+      setBar(yawBar, 0);
+      setBar(pitchBar, 0);
+      setBar(rollBar, 0);
     }
 
     function resizeOverlay() {
@@ -358,7 +731,7 @@
     }
 
     function multiply3(a, b) {
-      const out = [[0,0,0],[0,0,0],[0,0,0]];
+      const out = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
       for (let row = 0; row < 3; row += 1) {
         for (let col = 0; col < 3; col += 1) {
           out[row][col] = a[row][0] * b[0][col] + a[row][1] * b[1][col] + a[row][2] * b[2][col];
@@ -383,37 +756,181 @@
       return { pitch: x * RAD2DEG, yaw: y * RAD2DEG, roll: z * RAD2DEG };
     }
 
-    function getBlendshapeScore(result, name) {
-      const categories = result?.faceBlendshapes?.[0]?.categories;
-      if (!categories) return null;
-      const match = categories.find(item => item.categoryName === name);
-      return match ? match.score : null;
+    function getBlendshapeMap(result) {
+      const categories = result?.faceBlendshapes?.[0]?.categories ?? [];
+      return Object.fromEntries(categories.map(item => [item.categoryName, item.score]));
     }
 
-    function updateFps() {
-      frameCounter += 1;
-      const now = performance.now();
-      const elapsed = now - lastFpsTime;
-      if (elapsed >= 500) {
-        fpsValue.textContent = Math.round(frameCounter * 1000 / elapsed).toString();
-        frameCounter = 0;
-        lastFpsTime = now;
+    function getFaceBounds(landmarks) {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (const point of landmarks) {
+        if (point.x < minX) minX = point.x;
+        if (point.x > maxX) maxX = point.x;
+        if (point.y < minY) minY = point.y;
+        if (point.y > maxY) maxY = point.y;
       }
+      return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
     }
 
-    function extractDebugInfo(result) {
+    function currentFaceWidthPxFromResult(result) {
       const landmarks = result?.faceLandmarks?.[0];
-      if (!landmarks) {
-        faceX.textContent = "–";
-        faceY.textContent = "–";
-        jawOpen.textContent = "–";
+      if (!landmarks) return null;
+      return getFaceBounds(landmarks).width * overlay.clientWidth;
+    }
+
+    function calculateGeometry(landmarks) {
+      const width = overlay.clientWidth;
+      const height = overlay.clientHeight;
+      const bounds = getFaceBounds(landmarks);
+      const faceWidth = bounds.width * width;
+      const faceHeight = bounds.height * height;
+      const faceCenterX = ((bounds.minX + bounds.maxX) / 2 - 0.5) * 100;
+      const faceCenterY = ((bounds.minY + bounds.maxY) / 2 - 0.5) * 100;
+
+      const mouthLeft = getPoint(landmarks, LM.mouthLeft, width, height);
+      const mouthRight = getPoint(landmarks, LM.mouthRight, width, height);
+      const mouthTop = getPoint(landmarks, LM.mouthTop, width, height);
+      const mouthBottom = getPoint(landmarks, LM.mouthBottom, width, height);
+      const mouthWidth = dist(mouthLeft, mouthRight);
+      const mouthHeight = dist(mouthTop, mouthBottom);
+      const mouthAspect = mouthHeight / Math.max(mouthWidth, 1e-6);
+
+      const leftEyeOuter = getPoint(landmarks, LM.leftEyeOuter, width, height);
+      const leftEyeInner = getPoint(landmarks, LM.leftEyeInner, width, height);
+      const leftEyeTop = getPoint(landmarks, LM.leftEyeTop, width, height);
+      const leftEyeBottom = getPoint(landmarks, LM.leftEyeBottom, width, height);
+      const rightEyeOuter = getPoint(landmarks, LM.rightEyeOuter, width, height);
+      const rightEyeInner = getPoint(landmarks, LM.rightEyeInner, width, height);
+      const rightEyeTop = getPoint(landmarks, LM.rightEyeTop, width, height);
+      const rightEyeBottom = getPoint(landmarks, LM.rightEyeBottom, width, height);
+
+      const leftEyeWidth = dist(leftEyeOuter, leftEyeInner);
+      const rightEyeWidth = dist(rightEyeOuter, rightEyeInner);
+      const leftEyeHeight = dist(leftEyeTop, leftEyeBottom);
+      const rightEyeHeight = dist(rightEyeTop, rightEyeBottom);
+      const leftEAR = leftEyeHeight / Math.max(leftEyeWidth, 1e-6);
+      const rightEAR = rightEyeHeight / Math.max(rightEyeWidth, 1e-6);
+
+      const leftIrisCenter = averagePoint(landmarks, LM.leftIris, width, height);
+      const rightIrisCenter = averagePoint(landmarks, LM.rightIris, width, height);
+      const interEye = dist(leftIrisCenter, rightIrisCenter);
+
+      const irisDiameter = mean([
+        dist(getPoint(landmarks, 469, width, height), getPoint(landmarks, 471, width, height)),
+        dist(getPoint(landmarks, 474, width, height), getPoint(landmarks, 476, width, height)),
+        dist(getPoint(landmarks, 470, width, height), getPoint(landmarks, 472, width, height)),
+        dist(getPoint(landmarks, 475, width, height), getPoint(landmarks, 477, width, height))
+      ]);
+
+      const leftEyeCenter = { x: (leftEyeOuter.x + leftEyeInner.x) / 2, y: (leftEyeTop.y + leftEyeBottom.y) / 2 };
+      const rightEyeCenter = { x: (rightEyeOuter.x + rightEyeInner.x) / 2, y: (rightEyeTop.y + rightEyeBottom.y) / 2 };
+      const leftBrowY = mean(LM.leftBrow.map(idx => landmarks[idx].y * height));
+      const rightBrowY = mean(LM.rightBrow.map(idx => landmarks[idx].y * height));
+      const leftBrowHeight = (leftEyeCenter.y - leftBrowY) / Math.max(faceHeight, 1e-6);
+      const rightBrowHeight = (rightEyeCenter.y - rightBrowY) / Math.max(faceHeight, 1e-6);
+
+      return {
+        faceWidth,
+        faceHeight,
+        faceRatio: faceWidth / Math.max(faceHeight, 1e-6),
+        faceCenterX,
+        faceCenterY,
+        mouthWidth,
+        mouthHeight,
+        mouthAspect,
+        leftEAR,
+        rightEAR,
+        interEye,
+        irisDiameter,
+        leftBrowHeight,
+        rightBrowHeight
+      };
+    }
+
+    function updateDistanceUI(geometry) {
+      if (!geometry) {
+        distanceValue.textContent = "–";
+        distanceMode.textContent = "Proxy only";
+        faceWidthPx.textContent = "–";
+        faceHeightPx.textContent = "–";
+        interEyePxValue.textContent = "–";
+        irisDiameterPxValue.textContent = "–";
         return;
       }
-      const nose = landmarks[1];
-      faceX.textContent = `${(nose.x * 100).toFixed(1)}%`;
-      faceY.textContent = `${(nose.y * 100).toFixed(1)}%`;
-      const jaw = getBlendshapeScore(result, "jawOpen");
-      jawOpen.textContent = jaw == null ? "–" : jaw.toFixed(3);
+
+      faceWidthPx.textContent = `${geometry.faceWidth.toFixed(0)} px`;
+      faceHeightPx.textContent = `${geometry.faceHeight.toFixed(0)} px`;
+      interEyePxValue.textContent = `${geometry.interEye.toFixed(0)} px`;
+      irisDiameterPxValue.textContent = `${geometry.irisDiameter.toFixed(1)} px`;
+
+      if (referenceDistanceCm && referenceFaceWidthPx) {
+        const estimatedCm = referenceDistanceCm * (referenceFaceWidthPx / geometry.faceWidth);
+        distanceValue.textContent = `${estimatedCm.toFixed(1)} cm`;
+        distanceHint.textContent = "Approximate calibrated estimate from apparent face size.";
+        distanceMode.textContent = "Calibrated";
+      } else {
+        const proxy = geometry.faceWidth / 100;
+        distanceValue.textContent = `${proxy.toFixed(2)}×`;
+        distanceHint.textContent = "Relative proximity proxy only. Larger value means closer to the camera.";
+        distanceMode.textContent = "Proxy only";
+      }
+    }
+
+    function updateGeometryUI(geometry) {
+      if (!geometry) {
+        mouthWidthValue.textContent = "–";
+        mouthHeightValue.textContent = "–";
+        mouthAspectValue.textContent = "–";
+        earLeftValue.textContent = "–";
+        earRightValue.textContent = "–";
+        browLeftValue.textContent = "–";
+        browRightValue.textContent = "–";
+        faceRatioValue.textContent = "–";
+        faceX.textContent = "–";
+        faceY.textContent = "–";
+        return;
+      }
+
+      mouthWidthValue.textContent = `${geometry.mouthWidth.toFixed(1)} px`;
+      mouthHeightValue.textContent = `${geometry.mouthHeight.toFixed(1)} px`;
+      mouthAspectValue.textContent = geometry.mouthAspect.toFixed(3);
+      earLeftValue.textContent = geometry.leftEAR.toFixed(3);
+      earRightValue.textContent = geometry.rightEAR.toFixed(3);
+      browLeftValue.textContent = geometry.leftBrowHeight.toFixed(3);
+      browRightValue.textContent = geometry.rightBrowHeight.toFixed(3);
+      faceRatioValue.textContent = geometry.faceRatio.toFixed(3);
+      faceX.textContent = `${geometry.faceCenterX.toFixed(1)}%`;
+      faceY.textContent = `${geometry.faceCenterY.toFixed(1)}%`;
+    }
+
+    function deriveExpressions(blend) {
+      const blink = mean([blend.eyeBlinkLeft ?? 0, blend.eyeBlinkRight ?? 0]);
+      const eyeOpen = 1 - blink;
+      const browRaise = mean([blend.browInnerUp ?? 0, blend.browOuterUpLeft ?? 0, blend.browOuterUpRight ?? 0]);
+      const browFurrow = mean([blend.browDownLeft ?? 0, blend.browDownRight ?? 0]);
+      const smile = mean([blend.mouthSmileLeft ?? 0, blend.mouthSmileRight ?? 0]);
+      const lipPress = mean([blend.mouthPressLeft ?? 0, blend.mouthPressRight ?? 0]);
+      const lipStretch = mean([blend.mouthStretchLeft ?? 0, blend.mouthStretchRight ?? 0]);
+      const cheekPuff = blend.cheekPuff ?? 0;
+      const jawOpen = blend.jawOpen ?? 0;
+      const squint = mean([blend.eyeSquintLeft ?? 0, blend.eyeSquintRight ?? 0]);
+      return { blink, eyeOpen, browRaise, browFurrow, smile, lipPress, lipStretch, cheekPuff, jawOpen, squint };
+    }
+
+    function updateExpressionUI(expr) {
+      updateMiniMetric("blink", expr.blink);
+      updateMiniMetric("eyeOpen", expr.eyeOpen);
+      updateMiniMetric("browRaise", expr.browRaise);
+      updateMiniMetric("browFurrow", expr.browFurrow);
+      updateMiniMetric("smile", expr.smile);
+      updateMiniMetric("lipPress", expr.lipPress);
+      updateMiniMetric("lipStretch", expr.lipStretch);
+      updateMiniMetric("cheekPuff", expr.cheekPuff);
+      updateMiniMetric("jawOpen", expr.jawOpen);
+      updateMiniMetric("squint", expr.squint);
     }
 
     function estimatePose(result) {
@@ -427,6 +944,128 @@
       return rotationToEulerDegrees(relative);
     }
 
+    function getWindowHistory(ms = HISTORY_WINDOW_MS) {
+      const now = performance.now();
+      return state.history.filter(item => now - item.t <= ms);
+    }
+
+    function estimateFrequency(samples, property, minProminence, minIntervalMs) {
+      if (samples.length < 5) return 0;
+      const values = samples.map(s => s[property]);
+      const meanVal = mean(values);
+      const centered = values.map(v => Math.abs(v - meanVal));
+      const peaks = [];
+      for (let i = 1; i < centered.length - 1; i += 1) {
+        if (centered[i] > minProminence && centered[i] > centered[i - 1] && centered[i] >= centered[i + 1]) {
+          const t = samples[i].t;
+          if (!peaks.length || t - peaks[peaks.length - 1] >= minIntervalMs) {
+            peaks.push(t);
+          }
+        }
+      }
+      if (peaks.length < 2) return 0;
+      const durationSec = (peaks[peaks.length - 1] - peaks[0]) / 1000;
+      return durationSec > 0 ? (peaks.length - 1) / durationSec : 0;
+    }
+
+    function classifyInstantAction(pose, vel, speed) {
+      const absYaw = Math.abs(vel.yaw);
+      const absPitch = Math.abs(vel.pitch);
+      const absRoll = Math.abs(vel.roll);
+      if (speed < MOVING_THRESHOLD) return "Still";
+      if (absPitch >= absYaw && absPitch >= absRoll) {
+        if (speed >= HEADBANG_SPEED_THRESHOLD && Math.abs(pose.pitch) > 8) return "Headbanging";
+        return "Nodding";
+      }
+      if (absYaw >= absPitch && absYaw >= absRoll) return "Shaking";
+      return "Tilting";
+    }
+
+    function finalizeBout(now) {
+      if (!state.isMoving || state.boutStartTime == null) return;
+      const duration = now - state.boutStartTime;
+      state.boutDurationsMs.push(duration);
+      const { yaw, pitch, roll } = state.boutAxisMotion;
+      let label = "nodding";
+      if (pitch >= yaw && pitch >= roll) {
+        label = state.boutPeakSpeed >= HEADBANG_SPEED_THRESHOLD ? "headbanging" : "nodding";
+      } else if (yaw >= pitch && yaw >= roll) {
+        label = "shaking";
+      } else {
+        label = "tilting";
+      }
+      state.eventCounts[label] += 1;
+      state.isMoving = false;
+      state.boutStartTime = null;
+      state.boutAxisMotion = { yaw: 0, pitch: 0, roll: 0 };
+      state.boutPeakSpeed = 0;
+    }
+
+    function updateMotionState(pose, vel, speed, accel, dtMs, now) {
+      const amplitude = Math.hypot(pose.yaw, pose.pitch, pose.roll);
+      movementAmplitudeValue.textContent = `${amplitude.toFixed(1)} °`;
+      angularSpeedValue.textContent = `${speed.toFixed(1)} °/s`;
+      angularAccelValue.textContent = `${accel.toFixed(1)} °/s²`;
+      state.maxHeadSpeed = Math.max(state.maxHeadSpeed, speed);
+      maxHeadSpeedValue.textContent = `${state.maxHeadSpeed.toFixed(1)} °/s`;
+
+      state.currentAction = classifyInstantAction(pose, vel, speed);
+      currentActionEl.textContent = state.currentAction;
+
+      const isMovingNow = speed >= MOVING_THRESHOLD;
+      if (isMovingNow) {
+        state.movingTimeMs += dtMs;
+        if (!state.isMoving) {
+          state.isMoving = true;
+          state.boutStartTime = now;
+          state.boutAxisMotion = { yaw: 0, pitch: 0, roll: 0 };
+          state.boutPeakSpeed = speed;
+        }
+        state.boutAxisMotion.yaw += Math.abs(vel.yaw) * (dtMs / 1000);
+        state.boutAxisMotion.pitch += Math.abs(vel.pitch) * (dtMs / 1000);
+        state.boutAxisMotion.roll += Math.abs(vel.roll) * (dtMs / 1000);
+        state.boutPeakSpeed = Math.max(state.boutPeakSpeed, speed);
+      } else {
+        state.stillTimeMs += dtMs;
+        if (state.isMoving) finalizeBout(now);
+      }
+
+      if (vel.yaw >= 0) state.rightYawMotion += vel.yaw * (dtMs / 1000);
+      else state.leftYawMotion += Math.abs(vel.yaw) * (dtMs / 1000);
+
+      movingTimeValue.textContent = `${(state.movingTimeMs / 1000).toFixed(1)} s`;
+      stillTimeValue.textContent = `${(state.stillTimeMs / 1000).toFixed(1)} s`;
+      movementBoutsValue.textContent = `${state.boutDurationsMs.length + (state.isMoving ? 1 : 0)}`;
+      avgBoutValue.textContent = `${(mean(state.boutDurationsMs) / 1000 || 0).toFixed(1)} s`;
+      movementLoadValue.textContent = `${state.totalMovement.toFixed(1)} °`;
+      totalMovementValue.textContent = `${state.totalMovement.toFixed(1)} °`;
+      const maxYawSide = Math.max(state.leftYawMotion, state.rightYawMotion);
+      yawBalanceValue.textContent = maxYawSide > 0 ? `${(100 * Math.min(state.leftYawMotion, state.rightYawMotion) / maxYawSide).toFixed(0)}%` : "–";
+
+      eventNodCount.textContent = String(state.eventCounts.nodding);
+      eventShakeCount.textContent = String(state.eventCounts.shaking);
+      eventTiltCount.textContent = String(state.eventCounts.tilting);
+      eventHeadbangCount.textContent = String(state.eventCounts.headbanging);
+
+      const windowHistory = getWindowHistory();
+      if (windowHistory.length) {
+        const yawVals = windowHistory.map(s => s.pose.yaw);
+        const pitchVals = windowHistory.map(s => s.pose.pitch);
+        const rollVals = windowHistory.map(s => s.pose.roll);
+        romYawValue.textContent = `${(Math.max(...yawVals) - Math.min(...yawVals)).toFixed(1)} °`;
+        romPitchValue.textContent = `${(Math.max(...pitchVals) - Math.min(...pitchVals)).toFixed(1)} °`;
+        romRollValue.textContent = `${(Math.max(...rollVals) - Math.min(...rollVals)).toFixed(1)} °`;
+        const peakExcursion = Math.max(...windowHistory.map(s => Math.hypot(s.pose.yaw, s.pose.pitch, s.pose.roll)));
+        peakExcursionValue.textContent = `${peakExcursion.toFixed(1)} °`;
+      }
+
+      const motionHistory = getWindowHistory(MOTION_WINDOW_MS);
+      nodFreqValue.textContent = `${estimateFrequency(motionHistory, 'pitchSignal', 3.5, 220).toFixed(2)} Hz`;
+      shakeFreqValue.textContent = `${estimateFrequency(motionHistory, 'yawSignal', 3.5, 220).toFixed(2)} Hz`;
+      tiltFreqValue.textContent = `${estimateFrequency(motionHistory, 'rollSignal', 2.0, 220).toFixed(2)} Hz`;
+      headbangFreqValue.textContent = `${estimateFrequency(motionHistory, 'pitchSignal', 7.0, 150).toFixed(2)} Hz`;
+    }
+
     function updateTrackingState(hasFace) {
       if (hasFace) {
         trackingState.textContent = "Tracking";
@@ -437,30 +1076,146 @@
       }
     }
 
+    function getFaceOvalPoints(landmarks, width, height) {
+      const ovalConnections = FaceLandmarker.FACE_LANDMARKS_FACE_OVAL;
+      const seen = new Set();
+      const indices = [];
+      for (const connection of ovalConnections) {
+        const start = connection.start ?? connection[0];
+        if (!seen.has(start)) {
+          seen.add(start);
+          indices.push(start);
+        }
+      }
+      return indices.map(index => ({ x: landmarks[index].x * width, y: landmarks[index].y * height }));
+    }
+
+    function drawFaceGrid(landmarks) {
+      const width = overlay.clientWidth;
+      const height = overlay.clientHeight;
+      const ovalPoints = getFaceOvalPoints(landmarks, width, height);
+      if (ovalPoints.length < 3) return;
+
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (const point of ovalPoints) {
+        if (point.x < minX) minX = point.x;
+        if (point.x > maxX) maxX = point.x;
+        if (point.y < minY) minY = point.y;
+        if (point.y > maxY) maxY = point.y;
+      }
+
+      const cols = 6;
+      const rows = 8;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(ovalPoints[0].x, ovalPoints[0].y);
+      for (let i = 1; i < ovalPoints.length; i += 1) ctx.lineTo(ovalPoints[i].x, ovalPoints[i].y);
+      ctx.closePath();
+      ctx.clip();
+      ctx.strokeStyle = "rgba(175, 205, 255, 0.20)";
+      ctx.lineWidth = 0.9;
+      for (let c = 1; c < cols; c += 1) {
+        const x = minX + (maxX - minX) * (c / cols);
+        ctx.beginPath();
+        ctx.moveTo(x, minY);
+        ctx.lineTo(x, maxY);
+        ctx.stroke();
+      }
+      for (let r = 1; r < rows; r += 1) {
+        const y = minY + (maxY - minY) * (r / rows);
+        ctx.beginPath();
+        ctx.moveTo(minX, y);
+        ctx.lineTo(maxX, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawConnectorSet(landmarks, connectorSet, options = {}) {
+      ctx.save();
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      drawingUtils.drawConnectors(landmarks, connectorSet, options);
+      ctx.restore();
+    }
+
+    function drawCircle(x, y, radius, strokeStyle, lineWidth, fillStyle = null) {
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      if (fillStyle) {
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+      }
+      if (strokeStyle && lineWidth > 0) {
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+      }
+    }
+
     function drawFace(landmarks) {
       const width = overlay.clientWidth;
       const height = overlay.clientHeight;
-      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_FACE_OVAL, { color: "#6aa9ff", lineWidth: 2 });
-      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_LEFT_EYE, { color: "#ffffff", lineWidth: 1.4 });
-      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_RIGHT_EYE, { color: "#ffffff", lineWidth: 1.4 });
-      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_LEFT_IRIS, { color: "#40c057", lineWidth: 1.2 });
-      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_RIGHT_IRIS, { color: "#40c057", lineWidth: 1.2 });
-      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_LIPS, { color: "#ff922b", lineWidth: 1.2 });
-      const nose = landmarks[1];
-      const x = nose.x * width;
-      const y = nose.y * height;
-      ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = "#fa5252";
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(x - 16, y);
-      ctx.lineTo(x + 16, y);
-      ctx.moveTo(x, y - 16);
-      ctx.lineTo(x, y + 16);
-      ctx.strokeStyle = "rgba(250,82,82,0.9)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      const featureStyle = {
+        oval: { color: "rgba(130, 184, 255, 0.95)", lineWidth: 2.2 },
+        secondary: { color: "rgba(230, 238, 255, 0.72)", lineWidth: 1.35 },
+        accent: { color: "rgba(160, 210, 255, 0.90)", lineWidth: 1.55 },
+        iris: { color: "rgba(120, 226, 255, 0.98)", lineWidth: 1.25 },
+        lips: { color: "rgba(255, 210, 160, 0.78)", lineWidth: 1.35 }
+      };
+
+      drawFaceGrid(landmarks);
+      ctx.save();
+      ctx.shadowColor = "rgba(96, 165, 250, 0.20)";
+      ctx.shadowBlur = 10;
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, featureStyle.oval);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW, featureStyle.secondary);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW, featureStyle.secondary);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_NOSE, featureStyle.secondary);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, featureStyle.accent);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, featureStyle.accent);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_IRIS, featureStyle.iris);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS, featureStyle.iris);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, featureStyle.lips);
+      ctx.restore();
+
+      const nose = getPoint(landmarks, LM.noseTip, width, height);
+      drawCircle(nose.x, nose.y, 6.5, "rgba(150, 214, 255, 0.65)", 1.15);
+      drawCircle(nose.x, nose.y, 2.2, null, 0, "rgba(230, 245, 255, 0.92)");
+    }
+
+    function updateFps() {
+      frameCounter += 1;
+      const now = performance.now();
+      const elapsed = now - lastFpsTime;
+      if (elapsed >= 500) {
+        fpsValue.textContent = Math.round(frameCounter * 1000 / elapsed).toString();
+        frameCounter = 0;
+        lastFpsTime = now;
+      }
+    }
+
+    function updatePoseUI(pose) {
+      yawValue.textContent = formatAngle(pose.yaw);
+      pitchValue.textContent = formatAngle(pose.pitch);
+      rollValue.textContent = formatAngle(pose.roll);
+      setBar(yawBar, pose.yaw);
+      setBar(pitchBar, pose.pitch);
+      setBar(rollBar, pose.roll);
+    }
+
+    function clearMetricsForNoFace() {
+      updateTrackingState(false);
+      currentActionEl.textContent = "Still";
+      updateDistanceUI(null);
+      updateGeometryUI(null);
+      angularSpeedValue.textContent = "0.0 °/s";
+      angularAccelValue.textContent = "0.0 °/s²";
+      movementAmplitudeValue.textContent = "0.0 °";
+      for (const key of Object.keys(expressionEls)) updateMiniMetric(key, 0);
     }
 
     function processFrame(result) {
@@ -468,11 +1223,57 @@
       const landmarks = result?.faceLandmarks?.[0];
       const hasFace = Boolean(landmarks);
       updateTrackingState(hasFace);
-      extractDebugInfo(result);
-      if (!hasFace) return;
+      if (!hasFace) {
+        clearMetricsForNoFace();
+        return;
+      }
+
       drawFace(landmarks);
+
       const pose = estimatePose(result);
-      if (pose) updatePoseUI(pose);
+      if (!pose) return;
+      updatePoseUI(pose);
+
+      const geometry = calculateGeometry(landmarks);
+      updateDistanceUI(geometry);
+      updateGeometryUI(geometry);
+
+      const blend = getBlendshapeMap(result);
+      const expressions = deriveExpressions(blend);
+      updateExpressionUI(expressions);
+
+      const now = performance.now();
+      if (state.prevPose && state.prevTime != null) {
+        const dtSec = Math.max((now - state.prevTime) / 1000, 1 / 120);
+        const dtMs = now - state.prevTime;
+        const deltaYaw = pose.yaw - state.prevPose.yaw;
+        const deltaPitch = pose.pitch - state.prevPose.pitch;
+        const deltaRoll = pose.roll - state.prevPose.roll;
+        const vel = {
+          yaw: deltaYaw / dtSec,
+          pitch: deltaPitch / dtSec,
+          roll: deltaRoll / dtSec
+        };
+        const speed = Math.hypot(vel.yaw, vel.pitch, vel.roll);
+        const accel = Math.abs(speed - state.prevSpeed) / dtSec;
+
+        state.totalMovement += Math.hypot(deltaYaw, deltaPitch, deltaRoll);
+        state.history.push({
+          t: now,
+          pose: { ...pose },
+          speed,
+          pitchSignal: pose.pitch,
+          yawSignal: pose.yaw,
+          rollSignal: pose.roll
+        });
+        state.history = state.history.filter(item => now - item.t <= HISTORY_WINDOW_MS);
+
+        updateMotionState(pose, vel, speed, accel, dtMs, now);
+        state.prevSpeed = speed;
+      }
+
+      state.prevPose = { ...pose };
+      state.prevTime = now;
     }
 
     function renderLoop() {
@@ -497,7 +1298,11 @@
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }
+          video: {
+            facingMode: "user",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
         });
         video.srcObject = mediaStream;
         await video.play();
@@ -507,10 +1312,52 @@
         startBtn.disabled = true;
         stopBtn.disabled = false;
         calibrateBtn.disabled = false;
-        setStatus("Camera started. Look straight at the camera and click ‘Set neutral pose’.", "ok");
+        distanceRefBtn.disabled = false;
+        setStatus("Camera started. Look straight at the camera and click ‘Set neutral pose’. Use ‘Set reference distance’ if you want an approximate centimetre estimate.", "ok");
       } catch (error) {
         setStatus(`Could not start the camera: ${error.message}`, "warn");
       }
+    }
+
+    function resetDerivedState() {
+      state.prevPose = null;
+      state.prevTime = null;
+      state.prevSpeed = 0;
+      state.totalMovement = 0;
+      state.movingTimeMs = 0;
+      state.stillTimeMs = 0;
+      state.maxHeadSpeed = 0;
+      state.history = [];
+      state.leftYawMotion = 0;
+      state.rightYawMotion = 0;
+      state.isMoving = false;
+      state.boutStartTime = null;
+      state.boutDurationsMs = [];
+      state.boutAxisMotion = { yaw: 0, pitch: 0, roll: 0 };
+      state.boutPeakSpeed = 0;
+      state.currentAction = "Still";
+      state.eventCounts = { nodding: 0, shaking: 0, tilting: 0, headbanging: 0 };
+      currentActionEl.textContent = "Still";
+      movingTimeValue.textContent = "0.0 s";
+      stillTimeValue.textContent = "0.0 s";
+      movementBoutsValue.textContent = "0";
+      avgBoutValue.textContent = "0.0 s";
+      maxHeadSpeedValue.textContent = "0.0 °/s";
+      movementLoadValue.textContent = "0.0 °";
+      totalMovementValue.textContent = "0.0 °";
+      yawBalanceValue.textContent = "–";
+      peakExcursionValue.textContent = "0.0 °";
+      romYawValue.textContent = "0.0 °";
+      romPitchValue.textContent = "0.0 °";
+      romRollValue.textContent = "0.0 °";
+      nodFreqValue.textContent = "0.00 Hz";
+      shakeFreqValue.textContent = "0.00 Hz";
+      tiltFreqValue.textContent = "0.00 Hz";
+      headbangFreqValue.textContent = "0.00 Hz";
+      eventNodCount.textContent = "0";
+      eventShakeCount.textContent = "0";
+      eventTiltCount.textContent = "0";
+      eventHeadbangCount.textContent = "0";
     }
 
     function stopCamera() {
@@ -521,16 +1368,20 @@
         mediaStream.getTracks().forEach(track => track.stop());
         mediaStream = null;
       }
+      if (state.isMoving) finalizeBout(performance.now());
       video.pause();
       video.srcObject = null;
       clearOverlay();
       resetPoseUI();
+      resetDerivedState();
+      clearMetricsForNoFace();
       trackingState.textContent = "Stopped";
       trackingHint.textContent = "Camera stream is off.";
       fpsValue.textContent = "0";
       startBtn.disabled = false;
       stopBtn.disabled = true;
       calibrateBtn.disabled = true;
+      distanceRefBtn.disabled = true;
       setStatus("Camera stopped.");
     }
 
@@ -550,17 +1401,33 @@
       setStatus("Neutral pose stored.", "ok");
     }
 
+    function setReferenceDistance() {
+      if (!faceLandmarker || video.readyState < 2) {
+        setStatus("Start the camera before setting a reference distance.", "warn");
+        return;
+      }
+      const result = faceLandmarker.detectForVideo(video, performance.now());
+      const faceWidth = currentFaceWidthPxFromResult(result);
+      if (!faceWidth) {
+        setStatus("No face was detected. Look at the camera and try again.", "warn");
+        return;
+      }
+      const answer = window.prompt("Current face-to-camera distance in cm:", referenceDistanceCm ? String(referenceDistanceCm) : "60");
+      if (answer === null) return;
+      const value = Number(answer);
+      if (!Number.isFinite(value) || value <= 0) {
+        setStatus("Please enter a positive distance in centimetres.", "warn");
+        return;
+      }
+      referenceDistanceCm = value;
+      referenceFaceWidthPx = faceWidth;
+      setStatus("Reference distance stored. The distance readout now uses that calibration.", "ok");
+    }
+
     async function init() {
       try {
-        if (!window.vision) throw new Error("vision_bundle.js did not load");
-        FaceLandmarkerClass = window.vision.FaceLandmarker;
-        FilesetResolverClass = window.vision.FilesetResolver;
-        DrawingUtilsClass = window.vision.DrawingUtils;
-        if (!FaceLandmarkerClass || !FilesetResolverClass || !DrawingUtilsClass) {
-          throw new Error("MediaPipe vision classes are unavailable");
-        }
-        const fileset = await FilesetResolverClass.forVisionTasks(WASM_URL);
-        faceLandmarker = await FaceLandmarkerClass.createFromOptions(fileset, {
+        const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+        faceLandmarker = await FaceLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: MODEL_URL },
           runningMode: "VIDEO",
           numFaces: 1,
@@ -570,30 +1437,28 @@
           outputFaceBlendshapes: true,
           outputFacialTransformationMatrixes: true
         });
-        drawingUtils = new DrawingUtilsClass(ctx);
+        drawingUtils = new DrawingUtils(ctx);
         resizeOverlay();
         resetPoseUI();
-        updateTrackingState(false);
+        resetDerivedState();
+        clearMetricsForNoFace();
         startBtn.disabled = false;
+        distanceRefBtn.disabled = true;
         setStatus("Model ready. Click ‘Start camera’.", "ok");
       } catch (error) {
         startBtn.disabled = true;
         stopBtn.disabled = true;
         calibrateBtn.disabled = true;
+        distanceRefBtn.disabled = true;
         setStatus(`Could not load MediaPipe Face Landmarker: ${error.message}`, "warn");
         console.error(error);
       }
     }
 
-    window.addEventListener("error", event => {
-      if (!statusEl.textContent.startsWith("Could not load") && !statusEl.textContent.startsWith("Could not start")) {
-        setStatus(`Page error: ${event.message}`, "warn");
-      }
-    });
-
     startBtn.addEventListener("click", startCamera);
     stopBtn.addEventListener("click", stopCamera);
     calibrateBtn.addEventListener("click", calibrateNeutralPose);
+    distanceRefBtn.addEventListener("click", setReferenceDistance);
     window.addEventListener("resize", resizeOverlay);
 
     init();
