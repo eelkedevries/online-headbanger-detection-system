@@ -435,7 +435,7 @@
           <div class="metric">
             <h3>Frame rate</h3>
             <div class="metric-value small" id="fpsValue">0</div>
-            <div class="muted">Estimated from the animation loop.</div>
+            <div class="muted">Face-tracking update rate.</div>
           </div>
         </div>
 
@@ -580,10 +580,10 @@
     const MOTION_WINDOW_MS = 8000;
     const MOVING_THRESHOLD = 18;
     const HEADBANG_SPEED_THRESHOLD = 110;
-    const HAND_UPDATE_INTERVAL_MS = 80;
-    const POSE_UPDATE_INTERVAL_MS = 66;
-    const HAND_TEXT_UPDATE_INTERVAL_MS = 120;
-    const MAX_RENDER_DPR = 2;
+    const HAND_UPDATE_INTERVAL_MS = 140;
+    const POSE_UPDATE_INTERVAL_MS = 100;
+    const HAND_TEXT_UPDATE_INTERVAL_MS = 180;
+    const MAX_RENDER_DPR = window.matchMedia("(max-width: 900px)").matches ? 1.25 : 2;
 
     const BODY_CONNECTIONS = [
       [11, 12],
@@ -1508,8 +1508,8 @@
       avatarCamera.position.set(0, 0.10, 2.25);
       avatarCamera.lookAt(0, 0.15, 0);
 
-      avatarRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-      avatarRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      avatarRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: "low-power" });
+      avatarRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_RENDER_DPR));
       avatar3dEl.appendChild(avatarRenderer.domElement);
 
       const ambient = new THREE.AmbientLight(0xffffff, 0.8);
@@ -1594,20 +1594,49 @@
       avatarRenderer.setSize(width, height, false);
       avatarCamera.aspect = width / height;
       avatarCamera.updateProjectionMatrix();
+      renderAvatar3D();
     }
 
     function renderAvatar3D() {
       if (!avatarRenderer || !avatarScene || !avatarCamera) return;
       avatarRenderer.render(avatarScene, avatarCamera);
-      avatarAnimationId = requestAnimationFrame(renderAvatar3D);
     }
 
-    function mediapipeWorldToThree(landmark) {
-      return new THREE.Vector3(
-        -landmark.x * 2.35,
-        -landmark.y * 2.35 + 0.10,
-        -landmark.z * 2.35
-      );
+    function isFinitePoseLandmark(landmark) {
+      return landmark &&
+        Number.isFinite(landmark.x) &&
+        Number.isFinite(landmark.y) &&
+        Number.isFinite(landmark.z);
+    }
+
+    function normalisePoseWorldLandmarks(world) {
+      if (!world || !world[11] || !world[12] || !world[23] || !world[24]) return null;
+      if (!isFinitePoseLandmark(world[11]) || !isFinitePoseLandmark(world[12]) || !isFinitePoseLandmark(world[23]) || !isFinitePoseLandmark(world[24])) {
+        return null;
+      }
+
+      const hipCenter = {
+        x: (world[23].x + world[24].x) / 2,
+        y: (world[23].y + world[24].y) / 2,
+        z: (world[23].z + world[24].z) / 2
+      };
+
+      const shoulderDx = world[11].x - world[12].x;
+      const shoulderDy = world[11].y - world[12].y;
+      const shoulderDz = world[11].z - world[12].z;
+      const shoulderWidth = Math.sqrt(shoulderDx * shoulderDx + shoulderDy * shoulderDy + shoulderDz * shoulderDz);
+
+      const scale = Math.max(shoulderWidth, 0.08);
+      const factor = 0.42;
+
+      return world.map((landmark) => {
+        if (!isFinitePoseLandmark(landmark)) return null;
+        return new THREE.Vector3(
+          -((landmark.x - hipCenter.x) / scale) * factor,
+          -((landmark.y - hipCenter.y) / scale) * factor - 0.58,
+          -((landmark.z - hipCenter.z) / scale) * factor
+        );
+      });
     }
 
     function averageThreePoints(points) {
@@ -1624,45 +1653,75 @@
       if (!avatarRoot) return;
 
       const world = getPoseWorldLandmarks(poseResult);
-      if (!world) {
+      const mapped = normalisePoseWorldLandmarks(world);
+
+      if (!world || !mapped) {
         avatarRoot.visible = false;
+        renderAvatar3D();
         return;
       }
 
       avatarRoot.visible = true;
-      const mapped = world.map(mediapipeWorldToThree);
 
       const bonePositions = avatarBoneLine.geometry.attributes.position.array;
       let offset = 0;
       for (const [a, b] of BODY_CONNECTIONS) {
+        const lm1 = world[a];
+        const lm2 = world[b];
         const p1 = mapped[a];
         const p2 = mapped[b];
-        bonePositions[offset++] = p1.x;
-        bonePositions[offset++] = p1.y;
-        bonePositions[offset++] = p1.z;
-        bonePositions[offset++] = p2.x;
-        bonePositions[offset++] = p2.y;
-        bonePositions[offset++] = p2.z;
+        const visible1 = (lm1?.visibility ?? 1) > 0.35 && p1;
+        const visible2 = (lm2?.visibility ?? 1) > 0.35 && p2;
+
+        if (visible1 && visible2) {
+          bonePositions[offset++] = p1.x;
+          bonePositions[offset++] = p1.y;
+          bonePositions[offset++] = p1.z;
+          bonePositions[offset++] = p2.x;
+          bonePositions[offset++] = p2.y;
+          bonePositions[offset++] = p2.z;
+        } else {
+          const fallback = visible1 ? p1 : (visible2 ? p2 : new THREE.Vector3(0, -0.58, 0));
+          bonePositions[offset++] = fallback.x;
+          bonePositions[offset++] = fallback.y;
+          bonePositions[offset++] = fallback.z;
+          bonePositions[offset++] = fallback.x;
+          bonePositions[offset++] = fallback.y;
+          bonePositions[offset++] = fallback.z;
+        }
       }
       avatarBoneLine.geometry.attributes.position.needsUpdate = true;
-      avatarBoneLine.geometry.computeBoundingSphere();
 
       for (const idx of AVATAR_JOINTS) {
         const mesh = avatarJointMeshes.get(idx);
         if (!mesh) continue;
         const lm = world[idx];
         const p = mapped[idx];
-        mesh.visible = (lm?.visibility ?? 1) > 0.35;
-        mesh.position.copy(p);
+        mesh.visible = Boolean(p) && (lm?.visibility ?? 1) > 0.35;
+        if (mesh.visible) {
+          mesh.position.copy(p);
+        }
       }
 
-      const shoulderMid = averageThreePoints([mapped[11], mapped[12]]);
-      const headAnchor = ((world[7]?.visibility ?? 0) > 0.35 && (world[8]?.visibility ?? 0) > 0.35)
+      const leftShoulder = mapped[11];
+      const rightShoulder = mapped[12];
+      const leftHip = mapped[23];
+      const rightHip = mapped[24];
+
+      if (!(leftShoulder && rightShoulder && leftHip && rightHip)) {
+        avatarRoot.visible = false;
+        renderAvatar3D();
+        return;
+      }
+
+      const shoulderMid = averageThreePoints([leftShoulder, rightShoulder]);
+
+      const headAnchor = (mapped[7] && mapped[8])
         ? averageThreePoints([mapped[7], mapped[8]])
-        : mapped[0].clone();
+        : (mapped[0] ? mapped[0].clone() : shoulderMid.clone().add(new THREE.Vector3(0, -0.28, 0)));
 
       const headCenter = headAnchor.clone();
-      headCenter.y += 0.05;
+      headCenter.y += 0.06;
 
       avatarHeadGroup.visible = true;
       avatarHeadGroup.position.copy(headCenter);
@@ -1673,6 +1732,8 @@
           THREE.MathUtils.degToRad(-facePose.yaw),
           THREE.MathUtils.degToRad(-facePose.roll)
         );
+      } else {
+        avatarHeadGroup.rotation.set(0, 0, 0);
       }
 
       const neckPositions = avatarNeckLine.geometry.attributes.position.array;
@@ -1683,7 +1744,8 @@
       neckPositions[4] = headCenter.y - 0.11;
       neckPositions[5] = headCenter.z;
       avatarNeckLine.geometry.attributes.position.needsUpdate = true;
-      avatarNeckLine.geometry.computeBoundingSphere();
+
+      renderAvatar3D();
     }
 
     function clearMetricsForNoFace() {
@@ -1862,7 +1924,7 @@
             height: { ideal: mobile ? 540 : 720 }
           }
         };
-        desiredInferenceIntervalMs = mobile ? 66 : 40;
+        desiredInferenceIntervalMs = mobile ? 50 : 33;
         mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = mediaStream;
         await video.play();
@@ -1870,7 +1932,7 @@
         resetCachedTaskResults();
         state.lastInferenceTimestamp = -Infinity;
         renderLoop();
-        addLog(`Tracking loop started (${mobile ? "mobile" : "desktop"} profile, target ≈ ${Math.round(1000 / desiredInferenceIntervalMs)} fps inference).`);
+        addLog(`Tracking loop started (${mobile ? "mobile" : "desktop"} profile, target ≈ ${Math.round(1000 / desiredInferenceIntervalMs)} face fps; hands/pose throttled).`);
         lastFpsTime = performance.now();
         frameCounter = 0;
         startBtn.disabled = true;
