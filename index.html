@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Online Headbanger Detection System</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.js" crossorigin="anonymous"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -13,49 +14,33 @@
       --border: #2a3142;
       --text: #e9edf5;
       --muted: #9aa5b1;
-      --accent: #6aa9ff;
       --ok: #40c057;
       --warn: #ff922b;
-      --bad: #fa5252;
+      --accent: #6aa9ff;
     }
-
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: linear-gradient(180deg, #0b0d11 0%, #121722 100%);
       color: var(--text);
     }
-
     .app {
       width: min(1180px, calc(100vw - 32px));
       margin: 24px auto 40px;
     }
-
-    .header,
-    .panel,
-    .metric,
-    .controls {
+    .header, .panel, .metric, .controls {
       background: rgba(23, 26, 33, 0.92);
       border: 1px solid var(--border);
       border-radius: 18px;
       backdrop-filter: blur(8px);
     }
-
-    .header {
-      padding: 24px;
-      margin-bottom: 18px;
-    }
-
+    .header { padding: 24px; margin-bottom: 18px; }
     h1 {
       margin: 0 0 8px;
       font-size: clamp(28px, 4vw, 42px);
       line-height: 1.1;
     }
-
     .subtitle {
       margin: 0;
       color: var(--muted);
@@ -63,18 +48,13 @@
       line-height: 1.5;
       max-width: 80ch;
     }
-
     .layout {
       display: grid;
       grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.8fr);
       gap: 18px;
       align-items: start;
     }
-
-    .panel {
-      padding: 18px;
-    }
-
+    .panel { padding: 18px; }
     .controls {
       padding: 14px;
       display: flex;
@@ -82,7 +62,6 @@
       gap: 10px;
       margin-bottom: 12px;
     }
-
     button {
       appearance: none;
       border: 1px solid var(--border);
@@ -92,34 +71,16 @@
       border-radius: 12px;
       font: inherit;
       cursor: pointer;
-      transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+      transition: transform 0.12s ease, border-color 0.12s ease;
     }
-
     button:hover:not(:disabled) {
       transform: translateY(-1px);
       border-color: var(--accent);
     }
-
-    button:disabled {
-      cursor: not-allowed;
-      opacity: 0.55;
-    }
-
-    #startBtn {
-      background: rgba(64, 192, 87, 0.14);
-      border-color: rgba(64, 192, 87, 0.45);
-    }
-
-    #stopBtn {
-      background: rgba(250, 82, 82, 0.14);
-      border-color: rgba(250, 82, 82, 0.45);
-    }
-
-    #calibrateBtn {
-      background: rgba(106, 169, 255, 0.14);
-      border-color: rgba(106, 169, 255, 0.45);
-    }
-
+    button:disabled { cursor: not-allowed; opacity: 0.55; }
+    #startBtn { background: rgba(64, 192, 87, 0.14); border-color: rgba(64, 192, 87, 0.45); }
+    #stopBtn { background: rgba(250, 82, 82, 0.14); border-color: rgba(250, 82, 82, 0.45); }
+    #calibrateBtn { background: rgba(106, 169, 255, 0.14); border-color: rgba(106, 169, 255, 0.45); }
     .status {
       margin: 0 0 14px;
       padding: 12px 14px;
@@ -130,17 +91,8 @@
       line-height: 1.5;
       min-height: 48px;
     }
-
-    .status.ok {
-      color: #c9f7d1;
-      border-color: rgba(64, 192, 87, 0.45);
-    }
-
-    .status.warn {
-      color: #ffe2c2;
-      border-color: rgba(255, 146, 43, 0.45);
-    }
-
+    .status.ok { color: #c9f7d1; border-color: rgba(64, 192, 87, 0.45); }
+    .status.warn { color: #ffe2c2; border-color: rgba(255, 146, 43, 0.45); }
     .stage {
       position: relative;
       width: 100%;
@@ -150,79 +102,49 @@
       background: #05070b;
       border: 1px solid var(--border);
     }
-
-    video,
-    canvas {
+    video, canvas {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       display: block;
     }
-
-    video {
-      object-fit: cover;
-      background: #05070b;
-    }
-
-    .grid {
-      display: grid;
-      gap: 12px;
-    }
-
+    video { object-fit: cover; background: #05070b; }
+    .grid { display: grid; gap: 12px; }
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
-
-    .metric {
-      padding: 14px;
-    }
-
-    .metric h2,
-    .metric h3 {
+    .metric { padding: 14px; }
+    .metric h2, .metric h3 {
       margin: 0 0 10px;
       font-size: 15px;
       font-weight: 700;
       letter-spacing: 0.02em;
     }
-
     .metric-value {
       font-size: 28px;
       font-weight: 700;
       line-height: 1;
       margin-bottom: 8px;
     }
-
-    .muted {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    .bar-block {
-      display: grid;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
+    .muted { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .bar-block { display: grid; gap: 8px; margin-bottom: 12px; }
     .bar-label {
       display: flex;
       justify-content: space-between;
       gap: 12px;
       font-size: 14px;
     }
-
     .bar-track {
       position: relative;
       height: 14px;
       border-radius: 999px;
-      background: linear-gradient(90deg, rgba(106, 169, 255, 0.08) 0%, rgba(255,255,255,0.05) 50%, rgba(106, 169, 255, 0.08) 100%);
+      background: linear-gradient(90deg, rgba(106,169,255,0.08) 0%, rgba(255,255,255,0.05) 50%, rgba(106,169,255,0.08) 100%);
       overflow: hidden;
       border: 1px solid rgba(255,255,255,0.08);
     }
-
     .bar-track::after {
       content: "";
       position: absolute;
@@ -232,18 +154,15 @@
       width: 2px;
       background: rgba(255,255,255,0.22);
     }
-
     .bar-fill {
       position: absolute;
       top: 0;
       bottom: 0;
       left: 50%;
       width: 0;
-      background: linear-gradient(90deg, rgba(64, 192, 87, 0.65), rgba(106, 169, 255, 0.95));
-      transform-origin: left center;
+      background: linear-gradient(90deg, rgba(64,192,87,0.65), rgba(106,169,255,0.95));
       border-radius: 999px;
     }
-
     .kv {
       display: grid;
       grid-template-columns: max-content 1fr;
@@ -251,38 +170,18 @@
       align-items: baseline;
       font-size: 14px;
     }
-
-    .kv .key {
-      color: var(--muted);
-    }
-
+    .kv .key { color: var(--muted); }
     .footnote {
       margin-top: 12px;
       font-size: 12px;
       color: var(--muted);
       line-height: 1.5;
     }
-
-    @media (max-width: 920px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-    }
-
+    @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
     @media (max-width: 560px) {
-      .app {
-        width: min(100vw - 20px, 1180px);
-        margin-top: 10px;
-      }
-
-      .header,
-      .panel {
-        padding: 14px;
-      }
-
-      .grid-2 {
-        grid-template-columns: 1fr;
-      }
+      .app { width: min(100vw - 20px, 1180px); margin-top: 10px; }
+      .header, .panel { padding: 14px; }
+      .grid-2 { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -292,58 +191,49 @@
       <h1>Online Headbanger Detection System</h1>
       <p class="subtitle">Single-file browser demo for basic head tracking on a static GitHub Pages site. It uses MediaPipe Face Landmarker in video mode, tracks one face, draws the face mesh, and reports a neutral-pose-calibrated yaw, pitch, and roll estimate.</p>
     </section>
-
     <div class="layout">
       <section class="panel">
         <div class="controls">
-          <button id="startBtn" type="button">Start camera</button>
+          <button id="startBtn" type="button" disabled>Start camera</button>
           <button id="stopBtn" type="button" disabled>Stop camera</button>
           <button id="calibrateBtn" type="button" disabled>Set neutral pose</button>
         </div>
         <p id="status" class="status">Loading MediaPipe model…</p>
         <div class="stage">
-          <video id="video" playsinline></video>
+          <video id="video" playsinline muted></video>
           <canvas id="overlay"></canvas>
         </div>
-        <p class="footnote">Tip: GitHub Pages is served over HTTPS, which is required for webcam access in normal browser use.</p>
+        <p class="footnote">GitHub Pages runs over HTTPS, which allows webcam access. The browser will still ask for permission.</p>
       </section>
-
       <section class="grid">
         <div class="metric">
           <h2>Head pose</h2>
-
           <div class="bar-block">
             <div class="bar-label"><span>Yaw</span><span id="yawValue">0.0°</span></div>
             <div class="bar-track"><div id="yawBar" class="bar-fill"></div></div>
           </div>
-
           <div class="bar-block">
             <div class="bar-label"><span>Pitch</span><span id="pitchValue">0.0°</span></div>
             <div class="bar-track"><div id="pitchBar" class="bar-fill"></div></div>
           </div>
-
           <div class="bar-block">
             <div class="bar-label"><span>Roll</span><span id="rollValue">0.0°</span></div>
             <div class="bar-track"><div id="rollBar" class="bar-fill"></div></div>
           </div>
-
           <p class="muted">Values are relative to the stored neutral pose. Click <strong>Set neutral pose</strong> while looking straight at the camera.</p>
         </div>
-
         <div class="grid-2">
           <div class="metric">
             <h3>Tracking</h3>
             <div class="metric-value" id="trackingState">Waiting</div>
             <div class="muted" id="trackingHint">Start the camera to begin tracking.</div>
           </div>
-
           <div class="metric">
             <h3>Frame rate</h3>
             <div class="metric-value" id="fpsValue">0</div>
             <div class="muted">Estimated from the animation loop.</div>
           </div>
         </div>
-
         <div class="metric">
           <h3>Debug</h3>
           <div class="kv">
@@ -357,15 +247,9 @@
     </div>
   </main>
 
-  <script type="module">
-    import {
-      FaceLandmarker,
-      FilesetResolver,
-      DrawingUtils
-    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22";
-
+  <script>
     const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
-    const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm";
+    const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm";
     const RAD2DEG = 180 / Math.PI;
     const MAX_BAR_ANGLE = 40;
 
@@ -393,6 +277,9 @@
     const jawOpen = document.getElementById("jawOpen");
     const neutralState = document.getElementById("neutralState");
 
+    let FaceLandmarkerClass = null;
+    let FilesetResolverClass = null;
+    let DrawingUtilsClass = null;
     let faceLandmarker = null;
     let drawingUtils = null;
     let mediaStream = null;
@@ -416,8 +303,6 @@
       const percent = Math.abs(limited) / MAX_BAR_ANGLE * 50;
       barEl.style.left = limited >= 0 ? "50%" : `${50 - percent}%`;
       barEl.style.width = `${percent}%`;
-      barEl.style.transformOrigin = limited >= 0 ? "left center" : "right center";
-      barEl.style.transform = "none";
     }
 
     function formatAngle(value) {
@@ -454,15 +339,9 @@
     }
 
     function matrixToRotation3x3(matrixObject) {
-      if (!matrixObject) {
-        return null;
-      }
-
+      if (!matrixObject) return null;
       const raw = Array.from(matrixObject.data ?? matrixObject);
-      if (raw.length < 12) {
-        return null;
-      }
-
+      if (raw.length < 12) return null;
       return [
         [raw[0], raw[1], raw[2]],
         [raw[4], raw[5], raw[6]],
@@ -479,32 +358,19 @@
     }
 
     function multiply3(a, b) {
-      const out = [
-        [0, 0, 0],
-        [0, 0, 0],
-        [0, 0, 0]
-      ];
-
+      const out = [[0,0,0],[0,0,0],[0,0,0]];
       for (let row = 0; row < 3; row += 1) {
         for (let col = 0; col < 3; col += 1) {
-          out[row][col] =
-            a[row][0] * b[0][col] +
-            a[row][1] * b[1][col] +
-            a[row][2] * b[2][col];
+          out[row][col] = a[row][0] * b[0][col] + a[row][1] * b[1][col] + a[row][2] * b[2][col];
         }
       }
-
       return out;
     }
 
     function rotationToEulerDegrees(r) {
       const sy = Math.sqrt(r[0][0] * r[0][0] + r[1][0] * r[1][0]);
       const singular = sy < 1e-6;
-
-      let x;
-      let y;
-      let z;
-
+      let x, y, z;
       if (!singular) {
         x = Math.atan2(r[2][1], r[2][2]);
         y = Math.atan2(-r[2][0], sy);
@@ -514,70 +380,14 @@
         y = Math.atan2(-r[2][0], sy);
         z = 0;
       }
-
-      return {
-        pitch: x * RAD2DEG,
-        yaw: y * RAD2DEG,
-        roll: z * RAD2DEG
-      };
+      return { pitch: x * RAD2DEG, yaw: y * RAD2DEG, roll: z * RAD2DEG };
     }
 
     function getBlendshapeScore(result, name) {
       const categories = result?.faceBlendshapes?.[0]?.categories;
-      if (!categories) {
-        return null;
-      }
-
-      const match = categories.find((item) => item.categoryName === name);
+      if (!categories) return null;
+      const match = categories.find(item => item.categoryName === name);
       return match ? match.score : null;
-    }
-
-    function drawFace(landmarks) {
-      const width = overlay.clientWidth;
-      const height = overlay.clientHeight;
-
-      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, {
-        color: "#6aa9ff",
-        lineWidth: 2
-      });
-      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, {
-        color: "#ffffff",
-        lineWidth: 1.4
-      });
-      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, {
-        color: "#ffffff",
-        lineWidth: 1.4
-      });
-      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_IRIS, {
-        color: "#40c057",
-        lineWidth: 1.2
-      });
-      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS, {
-        color: "#40c057",
-        lineWidth: 1.2
-      });
-      drawingUtils.drawConnectors(landmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, {
-        color: "#ff922b",
-        lineWidth: 1.2
-      });
-
-      const nose = landmarks[1];
-      const noseX = nose.x * width;
-      const noseY = nose.y * height;
-
-      ctx.beginPath();
-      ctx.arc(noseX, noseY, 5, 0, Math.PI * 2);
-      ctx.fillStyle = "#fa5252";
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.moveTo(noseX - 16, noseY);
-      ctx.lineTo(noseX + 16, noseY);
-      ctx.moveTo(noseX, noseY - 16);
-      ctx.lineTo(noseX, noseY + 16);
-      ctx.strokeStyle = "rgba(250, 82, 82, 0.9)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
     }
 
     function updateFps() {
@@ -599,26 +409,20 @@
         jawOpen.textContent = "–";
         return;
       }
-
       const nose = landmarks[1];
       faceX.textContent = `${(nose.x * 100).toFixed(1)}%`;
       faceY.textContent = `${(nose.y * 100).toFixed(1)}%`;
-
       const jaw = getBlendshapeScore(result, "jawOpen");
-      jawOpen.textContent = jaw === null ? "–" : jaw.toFixed(3);
+      jawOpen.textContent = jaw == null ? "–" : jaw.toFixed(3);
     }
 
     function estimatePose(result) {
       const rotation = matrixToRotation3x3(result?.facialTransformationMatrixes?.[0]);
-      if (!rotation) {
-        return null;
-      }
-
+      if (!rotation) return null;
       if (!neutralRotation) {
         neutralRotation = rotation;
         neutralState.textContent = "Auto-set from first tracked frame";
       }
-
       const relative = multiply3(rotation, transpose3(neutralRotation));
       return rotationToEulerDegrees(relative);
     }
@@ -633,24 +437,42 @@
       }
     }
 
+    function drawFace(landmarks) {
+      const width = overlay.clientWidth;
+      const height = overlay.clientHeight;
+      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_FACE_OVAL, { color: "#6aa9ff", lineWidth: 2 });
+      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_LEFT_EYE, { color: "#ffffff", lineWidth: 1.4 });
+      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_RIGHT_EYE, { color: "#ffffff", lineWidth: 1.4 });
+      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_LEFT_IRIS, { color: "#40c057", lineWidth: 1.2 });
+      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_RIGHT_IRIS, { color: "#40c057", lineWidth: 1.2 });
+      drawingUtils.drawConnectors(landmarks, FaceLandmarkerClass.FACE_LANDMARKS_LIPS, { color: "#ff922b", lineWidth: 1.2 });
+      const nose = landmarks[1];
+      const x = nose.x * width;
+      const y = nose.y * height;
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "#fa5252";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x - 16, y);
+      ctx.lineTo(x + 16, y);
+      ctx.moveTo(x, y - 16);
+      ctx.lineTo(x, y + 16);
+      ctx.strokeStyle = "rgba(250,82,82,0.9)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
     function processFrame(result) {
       clearOverlay();
-
       const landmarks = result?.faceLandmarks?.[0];
       const hasFace = Boolean(landmarks);
       updateTrackingState(hasFace);
       extractDebugInfo(result);
-
-      if (!hasFace) {
-        return;
-      }
-
+      if (!hasFace) return;
       drawFace(landmarks);
-
       const pose = estimatePose(result);
-      if (pose) {
-        updatePoseUI(pose);
-      }
+      if (pose) updatePoseUI(pose);
     }
 
     function renderLoop() {
@@ -658,46 +480,35 @@
         animationFrameId = requestAnimationFrame(renderLoop);
         return;
       }
-
       if (video.currentTime !== lastVideoTime) {
         lastVideoTime = video.currentTime;
         const result = faceLandmarker.detectForVideo(video, performance.now());
         processFrame(result);
         updateFps();
       }
-
       animationFrameId = requestAnimationFrame(renderLoop);
     }
 
     async function startCamera() {
       if (!faceLandmarker) {
-        setStatus("The model is still loading. Please try again in a moment.", "warn");
+        setStatus("The model is still loading. Please wait a moment.", "warn");
         return;
       }
-
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }
         });
-
         video.srcObject = mediaStream;
         await video.play();
         resizeOverlay();
-
         cancelAnimationFrame(animationFrameId);
         animationFrameId = requestAnimationFrame(renderLoop);
-
         startBtn.disabled = true;
         stopBtn.disabled = false;
         calibrateBtn.disabled = false;
-        setStatus("Camera started. Look straight at the camera and click ‘Set neutral pose’ for a clean baseline.", "ok");
+        setStatus("Camera started. Look straight at the camera and click ‘Set neutral pose’.", "ok");
       } catch (error) {
-        console.error(error);
         setStatus(`Could not start the camera: ${error.message}`, "warn");
       }
     }
@@ -706,12 +517,10 @@
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
       lastVideoTime = -1;
-
       if (mediaStream) {
-        mediaStream.getTracks().forEach((track) => track.stop());
+        mediaStream.getTracks().forEach(track => track.stop());
         mediaStream = null;
       }
-
       video.pause();
       video.srcObject = null;
       clearOverlay();
@@ -719,7 +528,6 @@
       trackingState.textContent = "Stopped";
       trackingHint.textContent = "Camera stream is off.";
       fpsValue.textContent = "0";
-
       startBtn.disabled = false;
       stopBtn.disabled = true;
       calibrateBtn.disabled = true;
@@ -731,14 +539,12 @@
         setStatus("Start the camera before calibrating.", "warn");
         return;
       }
-
       const result = faceLandmarker.detectForVideo(video, performance.now());
       const rotation = matrixToRotation3x3(result?.facialTransformationMatrixes?.[0]);
       if (!rotation) {
         setStatus("No face was detected. Look at the camera and try again.", "warn");
         return;
       }
-
       neutralRotation = rotation;
       neutralState.textContent = "Manually set";
       setStatus("Neutral pose stored.", "ok");
@@ -746,11 +552,16 @@
 
     async function init() {
       try {
-        const vision = await FilesetResolver.forVisionTasks(WASM_URL);
-        faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: MODEL_URL
-          },
+        if (!window.vision) throw new Error("vision_bundle.js did not load");
+        FaceLandmarkerClass = window.vision.FaceLandmarker;
+        FilesetResolverClass = window.vision.FilesetResolver;
+        DrawingUtilsClass = window.vision.DrawingUtils;
+        if (!FaceLandmarkerClass || !FilesetResolverClass || !DrawingUtilsClass) {
+          throw new Error("MediaPipe vision classes are unavailable");
+        }
+        const fileset = await FilesetResolverClass.forVisionTasks(WASM_URL);
+        faceLandmarker = await FaceLandmarkerClass.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: MODEL_URL },
           runningMode: "VIDEO",
           numFaces: 1,
           minFaceDetectionConfidence: 0.5,
@@ -759,20 +570,26 @@
           outputFaceBlendshapes: true,
           outputFacialTransformationMatrixes: true
         });
-
-        drawingUtils = new DrawingUtils(ctx);
+        drawingUtils = new DrawingUtilsClass(ctx);
         resizeOverlay();
         resetPoseUI();
         updateTrackingState(false);
+        startBtn.disabled = false;
         setStatus("Model ready. Click ‘Start camera’.", "ok");
       } catch (error) {
-        console.error(error);
-        setStatus(`Could not load MediaPipe Face Landmarker: ${error.message}`, "warn");
         startBtn.disabled = true;
-        calibrateBtn.disabled = true;
         stopBtn.disabled = true;
+        calibrateBtn.disabled = true;
+        setStatus(`Could not load MediaPipe Face Landmarker: ${error.message}`, "warn");
+        console.error(error);
       }
     }
+
+    window.addEventListener("error", event => {
+      if (!statusEl.textContent.startsWith("Could not load") && !statusEl.textContent.startsWith("Could not start")) {
+        setStatus(`Page error: ${event.message}`, "warn");
+      }
+    });
 
     startBtn.addEventListener("click", startCamera);
     stopBtn.addEventListener("click", stopCamera);
