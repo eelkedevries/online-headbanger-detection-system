@@ -636,6 +636,7 @@
     const distanceRefBtn = document.getElementById("distanceRefBtn");
     const meshIdsBtn = document.getElementById("meshIdsBtn");
     const statusEl = document.getElementById("status");
+    const startupLogEl = document.getElementById("startupLog");
 
     const yawValue = document.getElementById("yawValue");
     const pitchValue = document.getElementById("pitchValue");
@@ -763,6 +764,7 @@
     };
 
     function addLog(message, level = "info") {
+      if (!startupLogEl) return;
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
       const line = document.createElement("span");
       line.className = `log-line ${level}`.trim();
