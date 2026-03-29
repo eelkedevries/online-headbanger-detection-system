@@ -175,7 +175,7 @@
     }
 
 
-    .loader-panel {
+    .log-panel {
       margin: 0 0 14px;
       padding: 12px 14px;
       border-radius: 14px;
@@ -183,50 +183,15 @@
       border: 1px solid var(--border);
     }
 
-    .loader-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 12px;
-      margin-bottom: 8px;
+    .log-header {
+      margin: 0 0 8px;
       font-size: 13px;
-      color: var(--muted);
-    }
-
-    .loader-phase {
       font-weight: 700;
       color: var(--text);
     }
 
-    .loader-track {
-      position: relative;
-      height: 12px;
-      border-radius: 999px;
-      overflow: hidden;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.08);
-      margin-bottom: 8px;
-    }
-
-    .loader-fill {
-      width: 0%;
-      height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(106,169,255,0.72), rgba(64,192,87,0.88));
-      transition: width 0.18s ease;
-    }
-
-    .loader-meta {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 10px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
     .log-box {
-      max-height: 140px;
+      max-height: 160px;
       overflow: auto;
       background: rgba(7,10,15,0.75);
       border: 1px solid rgba(255,255,255,0.06);
@@ -444,16 +409,8 @@
           <button id="meshIdsBtn" type="button">IDs: off</button>
         </div>
         <p id="status" class="status">Loading MediaPipe model…</p>
-        <div class="loader-panel">
-          <div class="loader-header">
-            <span id="loaderPhase" class="loader-phase">Booting page…</span>
-            <span id="loaderPercent">0%</span>
-          </div>
-          <div class="loader-track"><div id="loaderFill" class="loader-fill"></div></div>
-          <div class="loader-meta">
-            <span id="loaderEta">Estimated remaining: ~12 s</span>
-            <span id="loaderNote">Startup trace</span>
-          </div>
+        <div class="log-panel">
+          <div class="log-header">Startup log</div>
           <div id="startupLog" class="log-box" aria-live="polite"></div>
         </div>
         <div class="stage">
@@ -800,32 +757,10 @@
       lastPoseProcessTime: -Infinity,
       lastHandLabelTime: -Infinity,
       cachedHandResult: null,
-      cachedPoseResult: null
+      cachedPoseResult: null,
+      lastInferenceTimestamp: -Infinity,
+      loggedFirstFrame: false
     };
-
-    function renderLoader() {
-      loaderFillEl.style.width = `${loadingProgress.toFixed(1)}%`;
-      loaderPercentEl.textContent = `${Math.round(loadingProgress)}%`;
-      loaderPhaseEl.textContent = loadingPhase;
-      const remaining = Math.max(0, Math.round((100 - loadingProgress) / 8));
-      loaderEtaEl.textContent = remaining > 0
-        ? `Estimated remaining: ~${remaining} s`
-        : "Estimated remaining: <1 s";
-    }
-
-    function setLoadingStage(progress, phase, note = "Startup trace") {
-      loadingProgress = Math.max(loadingProgress, progress);
-      loadingPhase = phase;
-      loaderNoteEl.textContent = note;
-      renderLoader();
-    }
-
-    function finishLoading(note = "Ready") {
-      loadingProgress = 100;
-      loadingPhase = "Ready";
-      loaderNoteEl.textContent = note;
-      renderLoader();
-    }
 
     function addLog(message, level = "info") {
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -1820,10 +1755,15 @@
       state.lastHandLabelTime = -Infinity;
       state.cachedHandResult = null;
       state.cachedPoseResult = null;
+      state.loggedFirstFrame = false;
     }
 
     function processCurrentVideoFrame(timestamp) {
       updateVideoDrawRect();
+      if (!state.loggedFirstFrame) {
+        addLog("Processing live camera frames.");
+        state.loggedFirstFrame = true;
+      }
       const faceResult = faceLandmarker.detectForVideo(video, timestamp);
 
       if (!state.cachedHandResult || timestamp - state.lastHandProcessTime >= HAND_UPDATE_INTERVAL_MS) {
@@ -1840,32 +1780,20 @@
       updateFps(timestamp);
     }
 
-    function scheduleNextFrame() {
+    function runTrackingLoop(timestamp) {
       if (!mediaStream) return;
-      if (typeof video.requestVideoFrameCallback === "function") {
-        state.videoFrameCallbackId = video.requestVideoFrameCallback(handleVideoFrame);
-      } else {
-        animationFrameId = requestAnimationFrame(renderLoopFallback);
-      }
-    }
 
-    function handleVideoFrame(now, metadata) {
-      state.videoFrameCallbackId = null;
-      if (!mediaStream) return;
-      if (video.readyState >= 2) {
-        lastVideoTime = metadata?.mediaTime ?? video.currentTime;
-        processCurrentVideoFrame(now);
-      }
-      scheduleNextFrame();
-    }
+      animationFrameId = requestAnimationFrame(runTrackingLoop);
 
-    function renderLoopFallback() {
-      if (!mediaStream) return;
-      if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
-        lastVideoTime = video.currentTime;
-        processCurrentVideoFrame(performance.now());
+      if (video.readyState < 2) return;
+
+      if (timestamp - state.lastInferenceTimestamp < desiredInferenceIntervalMs) {
+        return;
       }
-      animationFrameId = requestAnimationFrame(renderLoopFallback);
+
+      state.lastInferenceTimestamp = timestamp;
+      lastVideoTime = video.currentTime;
+      processCurrentVideoFrame(timestamp);
     }
 
     function stopFrameScheduling() {
@@ -1878,7 +1806,9 @@
     }
 
     function renderLoop() {
-      scheduleNextFrame();
+      stopFrameScheduling();
+      state.lastInferenceTimestamp = -Infinity;
+      animationFrameId = requestAnimationFrame(runTrackingLoop);
     }
 
     async function startCamera() {
@@ -1898,13 +1828,15 @@
             height: { ideal: mobile ? 540 : 720 }
           }
         };
+        desiredInferenceIntervalMs = mobile ? 66 : 40;
         mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = mediaStream;
         await video.play();
         resizeOverlay();
         resetCachedTaskResults();
-        stopFrameScheduling();
+        state.lastInferenceTimestamp = -Infinity;
         renderLoop();
+        addLog(`Tracking loop started (${mobile ? "mobile" : "desktop"} profile, target ≈ ${Math.round(1000 / desiredInferenceIntervalMs)} fps inference).`);
         lastFpsTime = performance.now();
         frameCounter = 0;
         startBtn.disabled = true;
@@ -2030,18 +1962,15 @@
 
     async function init() {
       try {
-        renderLoader();
         addLog("Booting page.");
-        setLoadingStage(5, "Initialising 3D preview…");
+        addLog("Initialising 3D preview…");
         initAvatar3D();
         addLog("3D preview initialised.");
 
-        setLoadingStage(15, "Resolving MediaPipe runtime…");
         addLog("Loading MediaPipe runtime and WASM files…");
         const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
         addLog("MediaPipe runtime resolved.");
 
-        setLoadingStage(35, "Loading face model…");
         addLog("Starting Face Landmarker model load…");
         faceLandmarker = await FaceLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: MODEL_URL },
@@ -2055,7 +1984,6 @@
         });
         addLog("Face model ready.");
 
-        setLoadingStage(60, "Loading hand model…");
         addLog("Starting Hand Landmarker model load…");
         handLandmarker = await HandLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: HAND_MODEL_URL },
@@ -2067,7 +1995,6 @@
         });
         addLog("Hand model ready.");
 
-        setLoadingStage(82, "Loading pose model…");
         addLog("Starting Pose Landmarker model load…");
         poseLandmarker = await PoseLandmarker.createFromOptions(fileset, {
           baseOptions: { modelAssetPath: POSE_MODEL_URL },
@@ -2079,7 +2006,6 @@
         });
         addLog("Pose model ready.");
 
-        setLoadingStage(95, "Finalising UI…");
         resizeOverlay();
         resizeAvatar3D();
         resetPoseUI();
@@ -2088,7 +2014,6 @@
 
         startBtn.disabled = false;
         distanceRefBtn.disabled = true;
-        finishLoading("Models loaded");
         addLog("Initialisation complete.");
         setStatus("Face, hand, and pose models are ready. Click ‘Start camera’.", "ok");
       } catch (error) {
@@ -2096,7 +2021,6 @@
         stopBtn.disabled = true;
         calibrateBtn.disabled = true;
         distanceRefBtn.disabled = true;
-        setLoadingStage(100, "Loading failed", "Startup stopped");
         addLog(`Initialisation failed: ${error?.message || String(error)}`, "error");
         setStatus(`Could not load the MediaPipe models: ${error.message}`, "warn");
         console.error(error);
@@ -2113,8 +2037,10 @@
     });
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) {
+        addLog("Page hidden. Pausing tracking loop.");
         stopFrameScheduling();
       } else if (mediaStream) {
+        addLog("Page visible again. Resuming tracking loop.");
         renderLoop();
       }
     });
@@ -2137,7 +2063,6 @@
       addLog(`Unhandled rejection: ${reason}`, "error");
     });
 
-    renderLoader();
     init();
   </script>
 </body>
