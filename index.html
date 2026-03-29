@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Online Headbanger Detection System — Worker Architecture</title>
+  <title>Online Headbanger Detection System</title>
   <style>
     :root {
       color-scheme: dark;
@@ -16,52 +16,63 @@
       --ok: #40c057;
       --warn: #ff922b;
       --accent: #6aa9ff;
+      --accent-soft: rgba(106, 169, 255, 0.18);
       --accent-line: rgba(175, 205, 255, 0.22);
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: linear-gradient(180deg, #0b0d11 0%, #121722 100%);
       color: var(--text);
     }
+
     .app {
-      width: min(1360px, calc(100vw - 28px));
+      width: min(1340px, calc(100vw - 28px));
       margin: 18px auto 32px;
     }
+
     .header, .panel, .metric, .controls {
       background: rgba(23, 26, 33, 0.92);
       border: 1px solid var(--border);
       border-radius: 18px;
       backdrop-filter: blur(8px);
     }
+
     .header {
       padding: 22px;
       margin-bottom: 16px;
     }
+
     h1 {
       margin: 0 0 8px;
       font-size: clamp(28px, 4vw, 42px);
       line-height: 1.1;
     }
+
     .subtitle {
       margin: 0;
       color: var(--muted);
       font-size: 15px;
       line-height: 1.5;
-      max-width: 100ch;
+      max-width: 95ch;
     }
+
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.04fr) minmax(360px, 0.96fr);
+      grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
       gap: 16px;
       align-items: start;
     }
+
     .panel {
       padding: 16px;
       position: sticky;
       top: 14px;
     }
+
     .controls {
       padding: 12px;
       display: flex;
@@ -69,6 +80,7 @@
       gap: 10px;
       margin-bottom: 12px;
     }
+
     button {
       appearance: none;
       border: 1px solid var(--border);
@@ -80,19 +92,21 @@
       cursor: pointer;
       transition: transform 0.12s ease, border-color 0.12s ease;
     }
+
     button:hover:not(:disabled) {
       transform: translateY(-1px);
       border-color: var(--accent);
     }
+
     button:disabled {
       cursor: not-allowed;
       opacity: 0.55;
     }
+
     #startBtn { background: rgba(64, 192, 87, 0.14); border-color: rgba(64, 192, 87, 0.45); }
     #stopBtn { background: rgba(250, 82, 82, 0.14); border-color: rgba(250, 82, 82, 0.45); }
     #calibrateBtn { background: rgba(106, 169, 255, 0.14); border-color: rgba(106, 169, 255, 0.45); }
     #distanceRefBtn { background: rgba(255, 146, 43, 0.14); border-color: rgba(255, 146, 43, 0.45); }
-    #labelsBtn { background: rgba(204, 214, 224, 0.10); border-color: rgba(204, 214, 224, 0.22); }
 
     .status {
       margin: 0 0 14px;
@@ -104,8 +118,86 @@
       line-height: 1.5;
       min-height: 48px;
     }
+
     .status.ok { color: #c9f7d1; border-color: rgba(64, 192, 87, 0.45); }
     .status.warn { color: #ffe2c2; border-color: rgba(255, 146, 43, 0.45); }
+
+    .loader-panel {
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(31, 36, 48, 0.9);
+      border: 1px solid var(--border);
+    }
+
+    .loader-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .loader-phase {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .loader-track {
+      position: relative;
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 8px;
+    }
+
+    .loader-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(106, 169, 255, 0.72), rgba(64, 192, 87, 0.86));
+      transition: width 0.22s ease;
+    }
+
+    .loader-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .log-box {
+      max-height: 180px;
+      overflow: auto;
+      background: rgba(7, 10, 15, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      color: #d9e3ef;
+    }
+
+    .log-line {
+      display: block;
+      margin: 0 0 4px;
+    }
+
+    .log-line.warn {
+      color: #ffd8a8;
+    }
+
+    .log-line.error {
+      color: #ffb0b0;
+    }
 
     .stage {
       position: relative;
@@ -116,6 +208,7 @@
       background: #05070b;
       border: 1px solid var(--border);
     }
+
     video, #overlay {
       position: absolute;
       inset: 0;
@@ -123,15 +216,18 @@
       height: 100%;
       display: block;
     }
+
     video {
       object-fit: cover;
       background: #05070b;
       transform: scaleX(-1);
     }
+
     #overlay {
       pointer-events: none;
       transform: none;
     }
+
     .avatar-stage {
       position: relative;
       width: 100%;
@@ -144,6 +240,7 @@
         radial-gradient(circle at 50% 28%, rgba(120, 190, 255, 0.12), rgba(7, 11, 18, 0) 42%),
         linear-gradient(180deg, #0b1118 0%, #090d14 100%);
     }
+
     .avatar-stage canvas {
       position: static;
       inset: auto;
@@ -153,55 +250,73 @@
       transform: none;
       pointer-events: none;
     }
+
     .footnote {
       margin-top: 12px;
       font-size: 12px;
       color: var(--muted);
       line-height: 1.5;
     }
-    .grid { display: grid; gap: 12px; }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+    }
+
     .grid-2 {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
+
     .grid-3 {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
     }
-    .metric { padding: 14px; }
-    .metric h2, .metric h3 {
+
+    .metric {
+      padding: 14px;
+    }
+
+    .metric h2,
+    .metric h3 {
       margin: 0 0 10px;
       font-size: 15px;
       font-weight: 700;
       letter-spacing: 0.02em;
     }
+
     .metric-value {
       font-size: 28px;
       font-weight: 700;
       line-height: 1;
       margin-bottom: 8px;
     }
+
     .metric-value.small {
       font-size: 22px;
     }
+
     .muted {
       color: var(--muted);
       font-size: 13px;
       line-height: 1.45;
     }
+
     .bar-block {
       display: grid;
       gap: 8px;
       margin-bottom: 10px;
     }
+
     .bar-label {
       display: flex;
       justify-content: space-between;
       gap: 12px;
       font-size: 14px;
     }
+
     .bar-track {
       position: relative;
       height: 12px;
@@ -210,6 +325,7 @@
       overflow: hidden;
       border: 1px solid rgba(255,255,255,0.08);
     }
+
     .bar-track::after {
       content: "";
       position: absolute;
@@ -219,6 +335,7 @@
       width: 2px;
       background: rgba(255,255,255,0.18);
     }
+
     .bar-fill {
       position: absolute;
       top: 0;
@@ -228,6 +345,7 @@
       background: linear-gradient(90deg, rgba(64,192,87,0.65), rgba(106,169,255,0.95));
       border-radius: 999px;
     }
+
     .kv {
       display: grid;
       grid-template-columns: max-content 1fr;
@@ -235,46 +353,76 @@
       align-items: baseline;
       font-size: 14px;
     }
-    .kv .key { color: var(--muted); }
+
+    .kv .key {
+      color: var(--muted);
+    }
+
+    .section-label {
+      margin: 2px 0 10px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
     .mini-row {
       display: grid;
-      grid-template-columns: 110px 1fr 52px;
+      grid-template-columns: 110px 1fr 48px;
       gap: 10px;
       align-items: center;
       margin-bottom: 8px;
       font-size: 13px;
     }
+
+    .mini-row .label {
+      color: var(--muted);
+    }
+
     .mini-track {
-      position: relative;
       height: 8px;
       border-radius: 999px;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.06);
       overflow: hidden;
     }
+
     .mini-fill {
-      position: absolute;
-      top: 0;
-      left: 0;
-      bottom: 0;
+      height: 100%;
       width: 0%;
       border-radius: 999px;
-      background: linear-gradient(90deg, rgba(106,169,255,0.75), rgba(160,220,255,0.95));
+      background: linear-gradient(90deg, rgba(255, 174, 107, 0.85), rgba(106, 169, 255, 0.95));
     }
-    .summary-box {
-      font-size: 14px;
-      line-height: 1.5;
-      color: var(--text);
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(106, 169, 255, 0.35);
+      font-size: 13px;
+      font-weight: 600;
     }
-    .summary-box > div { margin-bottom: 4px; }
-    @media (max-width: 980px) {
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 1080px) {
       .layout { grid-template-columns: 1fr; }
       .panel { position: static; }
     }
-    @media (max-width: 560px) {
-      .app { width: min(100vw - 18px, 1360px); margin-top: 10px; }
+
+    @media (max-width: 640px) {
+      .app { width: min(100vw - 18px, 1340px); margin-top: 10px; }
       .header, .panel, .metric { padding: 14px; }
-      .grid-2, .grid-3 { grid-template-columns: 1fr; }
-      .mini-row { grid-template-columns: 100px 1fr 46px; }
+      .grid-2, .grid-3, .two-col { grid-template-columns: 1fr; }
+      .mini-row { grid-template-columns: 90px 1fr 42px; }
     }
   </style>
 </head>
@@ -282,11 +430,7 @@
   <main class="app">
     <section class="header">
       <h1>Online Headbanger Detection System</h1>
-      <p class="subtitle">
-        Worker-based static web demo with Face Landmarker, Hand Landmarker, and Pose Landmarker.
-        All heavy inference runs inside a background Web Worker. The main thread handles the HTML UI,
-        overlay rendering, and the small 3D avatar preview.
-      </p>
+      <p class="subtitle">Static browser demo using MediaPipe Face Landmarker. This version adds pose, geometry, expression, distance, movement, frequency, and behavioural summary measures on top of the face overlay.</p>
     </section>
 
     <div class="layout">
@@ -296,17 +440,26 @@
           <button id="stopBtn" type="button" disabled>Stop camera</button>
           <button id="calibrateBtn" type="button" disabled>Set neutral pose</button>
           <button id="distanceRefBtn" type="button" disabled>Set reference distance</button>
-          <button id="labelsBtn" type="button">IDs: off</button>
+          <button id="meshIdsBtn" type="button">IDs: off</button>
         </div>
-        <p id="status" class="status">Loading worker and models…</p>
+        <p id="status" class="status">Loading MediaPipe model…</p>
+        <div class="loader-panel">
+          <div class="loader-header">
+            <span class="loader-phase" id="loaderPhase">Booting page…</span>
+            <span id="loaderPercent">0%</span>
+          </div>
+          <div class="loader-track"><div id="loaderFill" class="loader-fill"></div></div>
+          <div class="loader-meta">
+            <span id="loaderEta">Estimated remaining: ~12 s</span>
+            <span id="loaderNote">Heuristic estimate</span>
+          </div>
+          <div id="startupLog" class="log-box" aria-live="polite"></div>
+        </div>
         <div class="stage">
-          <video id="video" playsinline muted autoplay></video>
+          <video id="video" playsinline autoplay muted></video>
           <canvas id="overlay"></canvas>
         </div>
-        <p class="footnote">
-          This page is intended to run from a secure static site such as GitHub Pages. Camera access
-          depends on both browser site permission and Android app permission.
-        </p>
+        <p class="footnote">Distance remains approximate because this is monocular webcam video. Frequency and event measures are rolling estimates and become more stable after a few seconds of movement.</p>
       </section>
 
       <section class="grid">
@@ -314,24 +467,24 @@
           <div class="metric">
             <h3>Tracking</h3>
             <div class="metric-value small" id="trackingState">Waiting</div>
-            <div class="muted">Worker inference status.</div>
+            <div class="muted" id="trackingHint">Start the camera to begin tracking.</div>
           </div>
           <div class="metric">
             <h3>Current action</h3>
             <div class="metric-value small" id="currentAction">Still</div>
-            <div class="muted">Dominant motion class from head pose.</div>
+            <div class="muted">Instant classification from pose velocity.</div>
           </div>
           <div class="metric">
             <h3>Frame rate</h3>
             <div class="metric-value small" id="fpsValue">0</div>
-            <div class="muted">UI update rate.</div>
+            <div class="muted">Estimated from the animation loop.</div>
           </div>
         </div>
 
         <div class="metric">
           <h3>3D avatar</h3>
           <div id="avatar3d" class="avatar-stage"></div>
-          <div class="muted">Approximate body pose from pose world landmarks, with face-driven head rotation.</div>
+          <div class="muted">Approximate body pose from Pose Landmarker world landmarks; head orientation follows the face pose.</div>
         </div>
 
         <div class="metric">
@@ -348,19 +501,18 @@
             <div class="bar-label"><span>Roll</span><span id="rollValue">0.0°</span></div>
             <div class="bar-track"><div id="rollBar" class="bar-fill"></div></div>
           </div>
-
-          <div class="grid-2">
+          <div class="two-col">
             <div class="kv">
-              <div class="key">Angular speed</div><div id="angularSpeedValue">–</div>
-              <div class="key">Angular acceleration</div><div id="angularAccelValue">–</div>
-              <div class="key">Movement amplitude</div><div id="movementAmplitudeValue">–</div>
-              <div class="key">Peak excursion</div><div id="peakExcursionValue">–</div>
+              <div class="key">Angular speed</div><div id="angularSpeedValue">0.0 °/s</div>
+              <div class="key">Angular acceleration</div><div id="angularAccelValue">0.0 °/s²</div>
+              <div class="key">Movement amplitude</div><div id="movementAmplitudeValue">0.0 °</div>
+              <div class="key">Peak excursion</div><div id="peakExcursionValue">0.0 °</div>
             </div>
             <div class="kv">
-              <div class="key">Range of motion (yaw)</div><div id="romYawValue">–</div>
-              <div class="key">Range of motion (pitch)</div><div id="romPitchValue">–</div>
-              <div class="key">Range of motion (roll)</div><div id="romRollValue">–</div>
-              <div class="key">Total movement</div><div id="totalMovementValue">–</div>
+              <div class="key">Range of motion (yaw)</div><div id="romYawValue">0.0 °</div>
+              <div class="key">Range of motion (pitch)</div><div id="romPitchValue">0.0 °</div>
+              <div class="key">Range of motion (roll)</div><div id="romRollValue">0.0 °</div>
+              <div class="key">Total movement</div><div id="totalMovementValue">0.0 °</div>
             </div>
           </div>
         </div>
@@ -369,19 +521,20 @@
           <div class="metric">
             <h3>Repetition frequency</h3>
             <div class="kv">
-              <div class="key">Nodding</div><div id="nodFreqValue">–</div>
-              <div class="key">Shaking</div><div id="shakeFreqValue">–</div>
-              <div class="key">Tilting</div><div id="tiltFreqValue">–</div>
-              <div class="key">Headbanging</div><div id="headbangFreqValue">–</div>
+              <div class="key">Nodding</div><div id="nodFreqValue">0.00 Hz</div>
+              <div class="key">Shaking</div><div id="shakeFreqValue">0.00 Hz</div>
+              <div class="key">Tilting</div><div id="tiltFreqValue">0.00 Hz</div>
+              <div class="key">Headbanging</div><div id="headbangFreqValue">0.00 Hz</div>
             </div>
           </div>
-
           <div class="metric">
             <h3>Distance and depth proxy</h3>
             <div class="metric-value small" id="distanceValue">–</div>
-            <div class="muted" id="distanceHint">Set a reference distance for a rough centimetre estimate.</div>
-            <div class="kv" style="margin-top:10px">
-              <div class="key">Face width</div><div id="faceWidthPxValue">–</div>
+            <div class="muted" id="distanceHint">Approximate only. Set a reference distance for a rough centimetre estimate.</div>
+            <div class="kv" style="margin-top: 10px;">
+              <div class="key">Distance mode</div><div id="distanceMode">Proxy only</div>
+              <div class="key">Face width</div><div id="faceWidthPx">–</div>
+              <div class="key">Face height</div><div id="faceHeightPx">–</div>
               <div class="key">Inter-eye distance</div><div id="interEyePxValue">–</div>
               <div class="key">Iris diameter proxy</div><div id="irisDiameterPxValue">–</div>
             </div>
@@ -390,7 +543,7 @@
 
         <div class="metric">
           <h3>Face geometry</h3>
-          <div class="grid-2">
+          <div class="two-col">
             <div class="kv">
               <div class="key">Mouth width</div><div id="mouthWidthValue">–</div>
               <div class="key">Mouth height</div><div id="mouthHeightValue">–</div>
@@ -402,6 +555,8 @@
               <div class="key">Eyebrow height (left)</div><div id="browLeftValue">–</div>
               <div class="key">Eyebrow height (right)</div><div id="browRightValue">–</div>
               <div class="key">Face width/height ratio</div><div id="faceRatioValue">–</div>
+              <div class="key">Screen translation X</div><div id="faceX">–</div>
+              <div class="key">Screen translation Y</div><div id="faceY">–</div>
             </div>
           </div>
         </div>
@@ -424,20 +579,24 @@
           <div class="metric">
             <h3>Behaviour summary</h3>
             <div class="kv">
-              <div class="key">Time moving</div><div id="movingTimeValue">–</div>
-              <div class="key">Time still</div><div id="stillTimeValue">–</div>
+              <div class="key">Time moving</div><div id="movingTimeValue">0.0 s</div>
+              <div class="key">Time still</div><div id="stillTimeValue">0.0 s</div>
               <div class="key">Movement bouts</div><div id="movementBoutsValue">0</div>
-              <div class="key">Average bout duration</div><div id="avgBoutValue">–</div>
-              <div class="key">Maximum head speed</div><div id="maxHeadSpeedValue">–</div>
-              <div class="key">Cumulative movement load</div><div id="movementLoadValue">–</div>
+              <div class="key">Average bout duration</div><div id="avgBoutValue">0.0 s</div>
+              <div class="key">Maximum head speed</div><div id="maxHeadSpeedValue">0.0 °/s</div>
+              <div class="key">Cumulative movement load</div><div id="movementLoadValue">0.0 °</div>
               <div class="key">Left/right yaw balance</div><div id="yawBalanceValue">–</div>
             </div>
           </div>
           <div class="metric">
-            <h3>Hands and pose</h3>
-            <div id="handSummary" class="summary-box muted">No hands detected.</div>
-            <div style="height:10px"></div>
-            <div id="poseSummary" class="summary-box muted">No body pose detected.</div>
+            <h3>Event classification</h3>
+            <div class="kv">
+              <div class="key">Nodding bouts</div><div id="eventNodCount">0</div>
+              <div class="key">Shaking bouts</div><div id="eventShakeCount">0</div>
+              <div class="key">Tilting bouts</div><div id="eventTiltCount">0</div>
+              <div class="key">Headbanging bouts</div><div id="eventHeadbangCount">0</div>
+              <div class="key">Neutral pose</div><div id="neutralState">Not set</div>
+            </div>
           </div>
         </div>
       </section>
@@ -445,16 +604,29 @@
   </main>
 
   <script type="module">
-
     import {
       FaceLandmarker,
       HandLandmarker,
-      PoseLandmarker
+      PoseLandmarker,
+      FilesetResolver
     } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs";
     import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
+    const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+    const HAND_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+    const POSE_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+    const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm";
+    const RAD2DEG = 180 / Math.PI;
     const MAX_BAR_ANGLE = 40;
+    const HISTORY_WINDOW_MS = 10000;
+    const MOTION_WINDOW_MS = 8000;
+    const MOVING_THRESHOLD = 18;
+    const HEADBANG_SPEED_THRESHOLD = 110;
+    const HAND_UPDATE_INTERVAL_MS = 80;
+    const POSE_UPDATE_INTERVAL_MS = 66;
+    const HAND_TEXT_UPDATE_INTERVAL_MS = 120;
     const MAX_RENDER_DPR = 2;
+
     const BODY_CONNECTIONS = [
       [11, 12],
       [11, 13], [13, 15],
@@ -464,78 +636,124 @@
       [23, 25], [25, 27], [27, 31],
       [24, 26], [26, 28], [28, 32]
     ];
+
     const AVATAR_JOINTS = [0, 7, 8, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 31, 32];
+
     const FACE_LABEL_INDICES = Object.freeze([
-      1, 4, 5, 6, 8, 9, 10, 13, 14, 17, 33, 61, 70, 78, 95, 105, 107, 109,
-      127, 133, 145, 152, 159, 168, 172, 178, 185, 191, 195, 197, 199, 205,
-      206, 213, 234, 263, 291, 300, 308, 334, 336, 356, 362, 374, 386, 397,
-      409, 417, 454, 468, 473
+      1, 4, 5, 6, 8, 9, 10, 13, 14, 17, 33, 37, 40, 46, 52, 55, 61, 66, 70, 78,
+      82, 84, 87, 91, 95, 105, 107, 109, 127, 133, 145, 152, 159, 168, 172, 178,
+      185, 191, 195, 197, 199, 205, 206, 213, 234, 263, 267, 270, 276, 282, 285,
+      291, 295, 300, 308, 312, 314, 317, 321, 324, 334, 336, 338, 356, 362, 374,
+      386, 397, 400, 409, 417, 454, 468, 473
     ]);
 
-    const workerSource = __WORKER_SOURCE__;
+    const LM = {
+      noseTip: 1,
+      mouthLeft: 61,
+      mouthRight: 291,
+      mouthTop: 13,
+      mouthBottom: 14,
+      leftEyeOuter: 33,
+      leftEyeInner: 133,
+      leftEyeTop: 159,
+      leftEyeBottom: 145,
+      rightEyeOuter: 362,
+      rightEyeInner: 263,
+      rightEyeTop: 386,
+      rightEyeBottom: 374,
+      leftBrow: [70, 63, 105, 66, 107],
+      rightBrow: [336, 296, 334, 293, 300],
+      leftIris: [468, 469, 470, 471, 472],
+      rightIris: [473, 474, 475, 476, 477]
+    };
 
     const video = document.getElementById("video");
     const overlay = document.getElementById("overlay");
-    const ctx = overlay.getContext("2d", { alpha: true });
+    const ctx = overlay.getContext("2d");
+    const avatar3dEl = document.getElementById("avatar3d");
 
     const startBtn = document.getElementById("startBtn");
     const stopBtn = document.getElementById("stopBtn");
     const calibrateBtn = document.getElementById("calibrateBtn");
     const distanceRefBtn = document.getElementById("distanceRefBtn");
-    const labelsBtn = document.getElementById("labelsBtn");
+    const meshIdsBtn = document.getElementById("meshIdsBtn");
     const statusEl = document.getElementById("status");
 
-    const trackingStateEl = document.getElementById("trackingState");
-    const currentActionEl = document.getElementById("currentAction");
-    const fpsValueEl = document.getElementById("fpsValue");
-    const distanceValueEl = document.getElementById("distanceValue");
-    const distanceHintEl = document.getElementById("distanceHint");
-    const handSummaryEl = document.getElementById("handSummary");
-    const poseSummaryEl = document.getElementById("poseSummary");
-
-    const yawValueEl = document.getElementById("yawValue");
-    const pitchValueEl = document.getElementById("pitchValue");
-    const rollValueEl = document.getElementById("rollValue");
+    const yawValue = document.getElementById("yawValue");
+    const pitchValue = document.getElementById("pitchValue");
+    const rollValue = document.getElementById("rollValue");
     const yawBar = document.getElementById("yawBar");
     const pitchBar = document.getElementById("pitchBar");
     const rollBar = document.getElementById("rollBar");
 
-    const metricEls = {};
-    for (const id of [
-      "angularSpeedValue","angularAccelValue","movementAmplitudeValue","peakExcursionValue",
-      "romYawValue","romPitchValue","romRollValue","totalMovementValue",
-      "nodFreqValue","shakeFreqValue","tiltFreqValue","headbangFreqValue",
-      "faceWidthPxValue","interEyePxValue","irisDiameterPxValue",
-      "mouthWidthValue","mouthHeightValue","mouthAspectValue","earLeftValue","earRightValue",
-      "browLeftValue","browRightValue","faceRatioValue",
-      "movingTimeValue","stillTimeValue","movementBoutsValue","avgBoutValue",
-      "maxHeadSpeedValue","movementLoadValue","yawBalanceValue"
-    ]) {
-      metricEls[id] = document.getElementById(id);
-    }
+    const trackingState = document.getElementById("trackingState");
+    const trackingHint = document.getElementById("trackingHint");
+    const currentActionEl = document.getElementById("currentAction");
+    const fpsValue = document.getElementById("fpsValue");
 
-    const exprEls = {};
-    for (const key of ["Blink","Open","BrowRaise","BrowFurrow","Smile","LipPress","LipStretch","CheekPuff","JawOpen","Squint"]) {
-      exprEls[key] = {
-        bar: document.getElementById(`expr${key}Bar`),
-        value: document.getElementById(`expr${key}Value`)
-      };
-    }
+    const angularSpeedValue = document.getElementById("angularSpeedValue");
+    const angularAccelValue = document.getElementById("angularAccelValue");
+    const movementAmplitudeValue = document.getElementById("movementAmplitudeValue");
+    const peakExcursionValue = document.getElementById("peakExcursionValue");
+    const romYawValue = document.getElementById("romYawValue");
+    const romPitchValue = document.getElementById("romPitchValue");
+    const romRollValue = document.getElementById("romRollValue");
+    const totalMovementValue = document.getElementById("totalMovementValue");
 
-    const avatar3dEl = document.getElementById("avatar3d");
+    const nodFreqValue = document.getElementById("nodFreqValue");
+    const shakeFreqValue = document.getElementById("shakeFreqValue");
+    const tiltFreqValue = document.getElementById("tiltFreqValue");
+    const headbangFreqValue = document.getElementById("headbangFreqValue");
 
-    let worker = null;
-    let workerReady = false;
-    let mediaStream = null;
-    let frameInFlight = false;
-    let running = false;
-    let labelsEnabled = false;
-    let scheduledFrameHandle = null;
-    let useVideoFrameCallback = false;
-    let fpsCounter = 0;
-    let fpsLastTime = performance.now();
-    let latestResult = null;
+    const distanceValue = document.getElementById("distanceValue");
+    const distanceHint = document.getElementById("distanceHint");
+    const distanceMode = document.getElementById("distanceMode");
+    const faceWidthPx = document.getElementById("faceWidthPx");
+    const faceHeightPx = document.getElementById("faceHeightPx");
+    const interEyePxValue = document.getElementById("interEyePxValue");
+    const irisDiameterPxValue = document.getElementById("irisDiameterPxValue");
 
+    const mouthWidthValue = document.getElementById("mouthWidthValue");
+    const mouthHeightValue = document.getElementById("mouthHeightValue");
+    const mouthAspectValue = document.getElementById("mouthAspectValue");
+    const earLeftValue = document.getElementById("earLeftValue");
+    const earRightValue = document.getElementById("earRightValue");
+    const browLeftValue = document.getElementById("browLeftValue");
+    const browRightValue = document.getElementById("browRightValue");
+    const faceRatioValue = document.getElementById("faceRatioValue");
+    const faceX = document.getElementById("faceX");
+    const faceY = document.getElementById("faceY");
+
+    const movingTimeValue = document.getElementById("movingTimeValue");
+    const stillTimeValue = document.getElementById("stillTimeValue");
+    const movementBoutsValue = document.getElementById("movementBoutsValue");
+    const avgBoutValue = document.getElementById("avgBoutValue");
+    const maxHeadSpeedValue = document.getElementById("maxHeadSpeedValue");
+    const movementLoadValue = document.getElementById("movementLoadValue");
+    const yawBalanceValue = document.getElementById("yawBalanceValue");
+
+    const eventNodCount = document.getElementById("eventNodCount");
+    const eventShakeCount = document.getElementById("eventShakeCount");
+    const eventTiltCount = document.getElementById("eventTiltCount");
+    const eventHeadbangCount = document.getElementById("eventHeadbangCount");
+    const neutralState = document.getElementById("neutralState");
+
+    const expressionEls = {
+      blink: { value: document.getElementById("exprBlinkValue"), bar: document.getElementById("exprBlinkBar") },
+      eyeOpen: { value: document.getElementById("exprOpenValue"), bar: document.getElementById("exprOpenBar") },
+      browRaise: { value: document.getElementById("exprBrowRaiseValue"), bar: document.getElementById("exprBrowRaiseBar") },
+      browFurrow: { value: document.getElementById("exprBrowFurrowValue"), bar: document.getElementById("exprBrowFurrowBar") },
+      smile: { value: document.getElementById("exprSmileValue"), bar: document.getElementById("exprSmileBar") },
+      lipPress: { value: document.getElementById("exprLipPressValue"), bar: document.getElementById("exprLipPressBar") },
+      lipStretch: { value: document.getElementById("exprLipStretchValue"), bar: document.getElementById("exprLipStretchBar") },
+      cheekPuff: { value: document.getElementById("exprCheekPuffValue"), bar: document.getElementById("exprCheekPuffBar") },
+      jawOpen: { value: document.getElementById("exprJawOpenValue"), bar: document.getElementById("exprJawOpenBar") },
+      squint: { value: document.getElementById("exprSquintValue"), bar: document.getElementById("exprSquintBar") }
+    };
+
+    let faceLandmarker = null;
+    let handLandmarker = null;
+    let poseLandmarker = null;
     let avatarRenderer = null;
     let avatarScene = null;
     let avatarCamera = null;
@@ -545,50 +763,173 @@
     let avatarNeckLine = null;
     let avatarJointMeshes = new Map();
     let avatarAnimationId = null;
+    let mediaStream = null;
+    let animationFrameId = null;
+    let lastVideoTime = -1;
+
+    let referenceDistanceCm = null;
+    let referenceFaceWidthPx = null;
+    let showFaceIds = false;
+    let neutralRotation = null;
+
+    let lastFpsTime = performance.now();
+    let frameCounter = 0;
+
+    const state = {
+      videoDrawRect: null,
+      videoFrameCallbackId: null,
+      prevPose: null,
+      prevSpeed: 0,
+      prevTime: null,
+      totalMovement: 0,
+      movingTimeMs: 0,
+      stillTimeMs: 0,
+      maxHeadSpeed: 0,
+      history: [],
+      leftYawMotion: 0,
+      rightYawMotion: 0,
+      isMoving: false,
+      boutStartTime: null,
+      boutDurationsMs: [],
+      boutAxisMotion: { yaw: 0, pitch: 0, roll: 0 },
+      boutPeakSpeed: 0,
+      currentAction: "Still",
+      eventCounts: { nodding: 0, shaking: 0, tilting: 0, headbanging: 0 },
+      lastHandProcessTime: -Infinity,
+      lastPoseProcessTime: -Infinity,
+      lastHandLabelTime: -Infinity,
+      cachedHandResult: null,
+      cachedPoseResult: null
+    };
+
+    function renderLoader() {
+      loaderFillEl.style.width = `${loadingProgress.toFixed(1)}%`;
+      loaderPercentEl.textContent = `${Math.round(loadingProgress)}%`;
+      loaderPhaseEl.textContent = loadingPhase;
+      loaderEtaEl.textContent = loadingEtaSeconds > 0
+        ? `Estimated remaining: ~${Math.max(1, Math.round(loadingEtaSeconds))} s`
+        : "Estimated remaining: <1 s";
+    }
+
+    function addLog(message, level = "info") {
+      const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const line = document.createElement("span");
+      line.className = `log-line ${level}`.trim();
+      line.textContent = `[${time}] ${message}`;
+      startupLogEl.appendChild(line);
+      startupLogEl.scrollTop = startupLogEl.scrollHeight;
+    }
+
+    function stopLoadingCreep() {
+      if (loadingTimer != null) {
+        clearInterval(loadingTimer);
+        loadingTimer = null;
+      }
+    }
+
+    function startLoadingCreep(maxProgress, startingEta) {
+      stopLoadingCreep();
+      loadingEtaSeconds = startingEta;
+      renderLoader();
+      loadingTimer = window.setInterval(() => {
+        if (loadingProgress < maxProgress) {
+          loadingProgress = Math.min(maxProgress, loadingProgress + 0.35);
+        }
+        if (loadingEtaSeconds > 1) {
+          loadingEtaSeconds -= 0.25;
+        }
+        renderLoader();
+      }, 250);
+    }
+
+    function setLoadingStage(progress, phase, etaSeconds, note = "Heuristic estimate") {
+      loadingProgress = Math.max(loadingProgress, progress);
+      loadingPhase = phase;
+      loadingEtaSeconds = etaSeconds;
+      loaderNoteEl.textContent = note;
+      renderLoader();
+    }
+
+    function finishLoadingStage(note = "Ready") {
+      stopLoadingCreep();
+      loadingProgress = 100;
+      loadingPhase = "Ready";
+      loadingEtaSeconds = 0;
+      loaderNoteEl.textContent = note;
+      renderLoader();
+    }
 
     function setStatus(message, kind = "") {
       statusEl.textContent = message;
       statusEl.className = `status ${kind}`.trim();
     }
 
-    function fmt(value, digits = 1, suffix = "") {
-      if (value == null || !Number.isFinite(value)) return "–";
-      return `${value.toFixed(digits)}${suffix}`;
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function mean(values) {
+      return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+    }
+
+    function dist(a, b) {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      return Math.hypot(dx, dy);
+    }
+
+    function averagePoint(landmarks, indices, width = 1, height = 1) {
+      let x = 0;
+      let y = 0;
+      for (const idx of indices) {
+        const point = getPoint(landmarks, idx, width, height);
+        x += point.x;
+        y += point.y;
+      }
+      return { x: x / indices.length, y: y / indices.length };
+    }
+
+    function getPoint(landmarks, idx, width = 1, height = 1) {
+      const rect = getVideoDrawRect();
+      return {
+        x: rect.x + (1 - landmarks[idx].x) * rect.width,
+        y: rect.y + landmarks[idx].y * rect.height
+      };
     }
 
     function setBar(barEl, angleDeg) {
-      const limited = Math.max(-MAX_BAR_ANGLE, Math.min(MAX_BAR_ANGLE, angleDeg || 0));
+      const limited = clamp(angleDeg, -MAX_BAR_ANGLE, MAX_BAR_ANGLE);
       const percent = Math.abs(limited) / MAX_BAR_ANGLE * 50;
       barEl.style.left = limited >= 0 ? "50%" : `${50 - percent}%`;
       barEl.style.width = `${percent}%`;
     }
 
-    function updateFpsDisplay() {
-      fpsCounter += 1;
-      const now = performance.now();
-      const elapsed = now - fpsLastTime;
-      if (elapsed >= 500) {
-        fpsValueEl.textContent = Math.round(fpsCounter * 1000 / elapsed).toString();
-        fpsCounter = 0;
-        fpsLastTime = now;
-      }
+    function formatAngle(value) {
+      return `${value >= 0 ? "" : "-"}${Math.abs(value).toFixed(1)}°`;
     }
 
-    function clearOverlay() {
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
+    function formatPct01(value) {
+      return `${Math.round(clamp(value, 0, 1) * 100)}%`;
     }
 
-    function resizeOverlay() {
-      const rect = overlay.parentElement.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, MAX_RENDER_DPR);
-      overlay.width = Math.max(1, Math.round(rect.width * dpr));
-      overlay.height = Math.max(1, Math.round(rect.height * dpr));
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    function updateMiniMetric(name, value01) {
+      const v = clamp(value01, 0, 1);
+      expressionEls[name].bar.style.width = `${v * 100}%`;
+      expressionEls[name].value.textContent = formatPct01(v);
     }
 
-    function getVideoDrawRect() {
-      const canvasWidth = overlay.clientWidth;
-      const canvasHeight = overlay.clientHeight;
+    function resetPoseUI() {
+      yawValue.textContent = "0.0°";
+      pitchValue.textContent = "0.0°";
+      rollValue.textContent = "0.0°";
+      setBar(yawBar, 0);
+      setBar(pitchBar, 0);
+      setBar(rollBar, 0);
+    }
+
+    function updateVideoDrawRect() {
+      const canvasWidth = overlay.clientWidth || overlay.parentElement?.clientWidth || 1;
+      const canvasHeight = overlay.clientHeight || overlay.parentElement?.clientHeight || 1;
       const videoWidth = video.videoWidth || 1280;
       const videoHeight = video.videoHeight || 720;
       const scale = Math.max(canvasWidth / videoWidth, canvasHeight / videoHeight);
@@ -596,28 +937,552 @@
       const drawHeight = videoHeight * scale;
       const x = (canvasWidth - drawWidth) / 2;
       const y = (canvasHeight - drawHeight) / 2;
-      return { x, y, width: drawWidth, height: drawHeight };
+      state.videoDrawRect = { x, y, width: drawWidth, height: drawHeight };
+      return state.videoDrawRect;
     }
 
-    function mapPoint(point, rect) {
+    function resizeOverlay() {
+      const stage = overlay.parentElement;
+      const rect = stage.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, MAX_RENDER_DPR);
+      const nextWidth = Math.max(1, Math.round(rect.width * dpr));
+      const nextHeight = Math.max(1, Math.round(rect.height * dpr));
+      if (overlay.width !== nextWidth || overlay.height !== nextHeight) {
+        overlay.width = nextWidth;
+        overlay.height = nextHeight;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      updateVideoDrawRect();
+    }
+
+    function clearOverlay() {
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+    }
+
+    function getVideoDrawRect() {
+      return state.videoDrawRect ?? updateVideoDrawRect();
+    }
+
+    function matrixToRotation3x3(matrixObject) {
+      if (!matrixObject) return null;
+      const raw = Array.from(matrixObject.data ?? matrixObject);
+      if (raw.length < 12) return null;
+      return [
+        [raw[0], raw[1], raw[2]],
+        [raw[4], raw[5], raw[6]],
+        [raw[8], raw[9], raw[10]]
+      ];
+    }
+
+    function transpose3(matrix) {
+      return [
+        [matrix[0][0], matrix[1][0], matrix[2][0]],
+        [matrix[0][1], matrix[1][1], matrix[2][1]],
+        [matrix[0][2], matrix[1][2], matrix[2][2]]
+      ];
+    }
+
+    function multiply3(a, b) {
+      const out = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+      for (let row = 0; row < 3; row += 1) {
+        for (let col = 0; col < 3; col += 1) {
+          out[row][col] = a[row][0] * b[0][col] + a[row][1] * b[1][col] + a[row][2] * b[2][col];
+        }
+      }
+      return out;
+    }
+
+    function rotationToEulerDegrees(r) {
+      const sy = Math.sqrt(r[0][0] * r[0][0] + r[1][0] * r[1][0]);
+      const singular = sy < 1e-6;
+      let x, y, z;
+      if (!singular) {
+        x = Math.atan2(r[2][1], r[2][2]);
+        y = Math.atan2(-r[2][0], sy);
+        z = Math.atan2(r[1][0], r[0][0]);
+      } else {
+        x = Math.atan2(-r[1][2], r[1][1]);
+        y = Math.atan2(-r[2][0], sy);
+        z = 0;
+      }
+      return { pitch: x * RAD2DEG, yaw: y * RAD2DEG, roll: z * RAD2DEG };
+    }
+
+    function getBlendshapeMap(result) {
+      const categories = result?.faceBlendshapes?.[0]?.categories ?? [];
+      return Object.fromEntries(categories.map(item => [item.categoryName, item.score]));
+    }
+
+    function getFaceBounds(landmarks) {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (const point of landmarks) {
+        if (point.x < minX) minX = point.x;
+        if (point.x > maxX) maxX = point.x;
+        if (point.y < minY) minY = point.y;
+        if (point.y > maxY) maxY = point.y;
+      }
+      return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
+    }
+
+    function currentFaceWidthPxFromResult(result) {
+      const landmarks = result?.faceLandmarks?.[0];
+      if (!landmarks) return null;
+      const rect = getVideoDrawRect();
+      return getFaceBounds(landmarks).width * rect.width;
+    }
+
+    function calculateGeometry(landmarks) {
+      const width = overlay.clientWidth;
+      const height = overlay.clientHeight;
+      const rect = getVideoDrawRect();
+      const bounds = getFaceBounds(landmarks);
+      const faceWidth = bounds.width * rect.width;
+      const faceHeight = bounds.height * rect.height;
+      const faceCenterX = ((bounds.minX + bounds.maxX) / 2 - 0.5) * 100;
+      const faceCenterY = ((bounds.minY + bounds.maxY) / 2 - 0.5) * 100;
+
+      const mouthLeft = getPoint(landmarks, LM.mouthLeft, width, height);
+      const mouthRight = getPoint(landmarks, LM.mouthRight, width, height);
+      const mouthTop = getPoint(landmarks, LM.mouthTop, width, height);
+      const mouthBottom = getPoint(landmarks, LM.mouthBottom, width, height);
+      const mouthWidth = dist(mouthLeft, mouthRight);
+      const mouthHeight = dist(mouthTop, mouthBottom);
+      const mouthAspect = mouthHeight / Math.max(mouthWidth, 1e-6);
+
+      const leftEyeOuter = getPoint(landmarks, LM.leftEyeOuter, width, height);
+      const leftEyeInner = getPoint(landmarks, LM.leftEyeInner, width, height);
+      const leftEyeTop = getPoint(landmarks, LM.leftEyeTop, width, height);
+      const leftEyeBottom = getPoint(landmarks, LM.leftEyeBottom, width, height);
+      const rightEyeOuter = getPoint(landmarks, LM.rightEyeOuter, width, height);
+      const rightEyeInner = getPoint(landmarks, LM.rightEyeInner, width, height);
+      const rightEyeTop = getPoint(landmarks, LM.rightEyeTop, width, height);
+      const rightEyeBottom = getPoint(landmarks, LM.rightEyeBottom, width, height);
+
+      const leftEyeWidth = dist(leftEyeOuter, leftEyeInner);
+      const rightEyeWidth = dist(rightEyeOuter, rightEyeInner);
+      const leftEyeHeight = dist(leftEyeTop, leftEyeBottom);
+      const rightEyeHeight = dist(rightEyeTop, rightEyeBottom);
+      const leftEAR = leftEyeHeight / Math.max(leftEyeWidth, 1e-6);
+      const rightEAR = rightEyeHeight / Math.max(rightEyeWidth, 1e-6);
+
+      const leftIrisCenter = averagePoint(landmarks, LM.leftIris, width, height);
+      const rightIrisCenter = averagePoint(landmarks, LM.rightIris, width, height);
+      const interEye = dist(leftIrisCenter, rightIrisCenter);
+
+      const irisDiameter = mean([
+        dist(getPoint(landmarks, 469, width, height), getPoint(landmarks, 471, width, height)),
+        dist(getPoint(landmarks, 474, width, height), getPoint(landmarks, 476, width, height)),
+        dist(getPoint(landmarks, 470, width, height), getPoint(landmarks, 472, width, height)),
+        dist(getPoint(landmarks, 475, width, height), getPoint(landmarks, 477, width, height))
+      ]);
+
+      const leftEyeCenter = { x: (leftEyeOuter.x + leftEyeInner.x) / 2, y: (leftEyeTop.y + leftEyeBottom.y) / 2 };
+      const rightEyeCenter = { x: (rightEyeOuter.x + rightEyeInner.x) / 2, y: (rightEyeTop.y + rightEyeBottom.y) / 2 };
+      const leftBrowY = mean(LM.leftBrow.map(idx => getPoint(landmarks, idx, width, height).y));
+      const rightBrowY = mean(LM.rightBrow.map(idx => getPoint(landmarks, idx, width, height).y));
+      const leftBrowHeight = (leftEyeCenter.y - leftBrowY) / Math.max(faceHeight, 1e-6);
+      const rightBrowHeight = (rightEyeCenter.y - rightBrowY) / Math.max(faceHeight, 1e-6);
+
       return {
-        x: rect.x + (1 - point.x) * rect.width,
-        y: rect.y + point.y * rect.height
+        faceWidth,
+        faceHeight,
+        faceRatio: faceWidth / Math.max(faceHeight, 1e-6),
+        faceCenterX,
+        faceCenterY,
+        mouthWidth,
+        mouthHeight,
+        mouthAspect,
+        leftEAR,
+        rightEAR,
+        interEye,
+        irisDiameter,
+        leftBrowHeight,
+        rightBrowHeight
       };
     }
 
-    function drawConnectorSet(landmarks, connectorSet, rect, options = {}) {
+    function updateDistanceUI(geometry) {
+      if (!geometry) {
+        distanceValue.textContent = "–";
+        distanceMode.textContent = "Proxy only";
+        faceWidthPx.textContent = "–";
+        faceHeightPx.textContent = "–";
+        interEyePxValue.textContent = "–";
+        irisDiameterPxValue.textContent = "–";
+        return;
+      }
+
+      faceWidthPx.textContent = `${geometry.faceWidth.toFixed(0)} px`;
+      faceHeightPx.textContent = `${geometry.faceHeight.toFixed(0)} px`;
+      interEyePxValue.textContent = `${geometry.interEye.toFixed(0)} px`;
+      irisDiameterPxValue.textContent = `${geometry.irisDiameter.toFixed(1)} px`;
+
+      if (referenceDistanceCm && referenceFaceWidthPx) {
+        const estimatedCm = referenceDistanceCm * (referenceFaceWidthPx / geometry.faceWidth);
+        distanceValue.textContent = `${estimatedCm.toFixed(1)} cm`;
+        distanceHint.textContent = "Approximate calibrated estimate from apparent face size.";
+        distanceMode.textContent = "Calibrated";
+      } else {
+        const proxy = geometry.faceWidth / 100;
+        distanceValue.textContent = `${proxy.toFixed(2)}×`;
+        distanceHint.textContent = "Relative proximity proxy only. Larger value means closer to the camera.";
+        distanceMode.textContent = "Proxy only";
+      }
+    }
+
+    function updateGeometryUI(geometry) {
+      if (!geometry) {
+        mouthWidthValue.textContent = "–";
+        mouthHeightValue.textContent = "–";
+        mouthAspectValue.textContent = "–";
+        earLeftValue.textContent = "–";
+        earRightValue.textContent = "–";
+        browLeftValue.textContent = "–";
+        browRightValue.textContent = "–";
+        faceRatioValue.textContent = "–";
+        faceX.textContent = "–";
+        faceY.textContent = "–";
+        return;
+      }
+
+      mouthWidthValue.textContent = `${geometry.mouthWidth.toFixed(1)} px`;
+      mouthHeightValue.textContent = `${geometry.mouthHeight.toFixed(1)} px`;
+      mouthAspectValue.textContent = geometry.mouthAspect.toFixed(3);
+      earLeftValue.textContent = geometry.leftEAR.toFixed(3);
+      earRightValue.textContent = geometry.rightEAR.toFixed(3);
+      browLeftValue.textContent = geometry.leftBrowHeight.toFixed(3);
+      browRightValue.textContent = geometry.rightBrowHeight.toFixed(3);
+      faceRatioValue.textContent = geometry.faceRatio.toFixed(3);
+      faceX.textContent = `${geometry.faceCenterX.toFixed(1)}%`;
+      faceY.textContent = `${geometry.faceCenterY.toFixed(1)}%`;
+    }
+
+    function deriveExpressions(blend) {
+      const blink = mean([blend.eyeBlinkLeft ?? 0, blend.eyeBlinkRight ?? 0]);
+      const eyeOpen = 1 - blink;
+      const browRaise = mean([blend.browInnerUp ?? 0, blend.browOuterUpLeft ?? 0, blend.browOuterUpRight ?? 0]);
+      const browFurrow = mean([blend.browDownLeft ?? 0, blend.browDownRight ?? 0]);
+      const smile = mean([blend.mouthSmileLeft ?? 0, blend.mouthSmileRight ?? 0]);
+      const lipPress = mean([blend.mouthPressLeft ?? 0, blend.mouthPressRight ?? 0]);
+      const lipStretch = mean([blend.mouthStretchLeft ?? 0, blend.mouthStretchRight ?? 0]);
+      const cheekPuff = blend.cheekPuff ?? 0;
+      const jawOpen = blend.jawOpen ?? 0;
+      const squint = mean([blend.eyeSquintLeft ?? 0, blend.eyeSquintRight ?? 0]);
+      return { blink, eyeOpen, browRaise, browFurrow, smile, lipPress, lipStretch, cheekPuff, jawOpen, squint };
+    }
+
+    function updateExpressionUI(expr) {
+      updateMiniMetric("blink", expr.blink);
+      updateMiniMetric("eyeOpen", expr.eyeOpen);
+      updateMiniMetric("browRaise", expr.browRaise);
+      updateMiniMetric("browFurrow", expr.browFurrow);
+      updateMiniMetric("smile", expr.smile);
+      updateMiniMetric("lipPress", expr.lipPress);
+      updateMiniMetric("lipStretch", expr.lipStretch);
+      updateMiniMetric("cheekPuff", expr.cheekPuff);
+      updateMiniMetric("jawOpen", expr.jawOpen);
+      updateMiniMetric("squint", expr.squint);
+    }
+
+    function estimatePose(result) {
+      const rotation = matrixToRotation3x3(result?.facialTransformationMatrixes?.[0]);
+      if (!rotation) return null;
+      if (!neutralRotation) {
+        neutralRotation = rotation;
+        neutralState.textContent = "Auto-set from first tracked frame";
+      }
+      const relative = multiply3(rotation, transpose3(neutralRotation));
+      return rotationToEulerDegrees(relative);
+    }
+
+    function getWindowHistory(ms = HISTORY_WINDOW_MS) {
+      const now = performance.now();
+      return state.history.filter(item => now - item.t <= ms);
+    }
+
+    function estimateFrequency(samples, property, minProminence, minIntervalMs) {
+      if (samples.length < 5) return 0;
+      const values = samples.map(s => s[property]);
+      const meanVal = mean(values);
+      const centered = values.map(v => Math.abs(v - meanVal));
+      const peaks = [];
+      for (let i = 1; i < centered.length - 1; i += 1) {
+        if (centered[i] > minProminence && centered[i] > centered[i - 1] && centered[i] >= centered[i + 1]) {
+          const t = samples[i].t;
+          if (!peaks.length || t - peaks[peaks.length - 1] >= minIntervalMs) {
+            peaks.push(t);
+          }
+        }
+      }
+      if (peaks.length < 2) return 0;
+      const durationSec = (peaks[peaks.length - 1] - peaks[0]) / 1000;
+      return durationSec > 0 ? (peaks.length - 1) / durationSec : 0;
+    }
+
+    function classifyInstantAction(pose, vel, speed) {
+      const absYaw = Math.abs(vel.yaw);
+      const absPitch = Math.abs(vel.pitch);
+      const absRoll = Math.abs(vel.roll);
+      if (speed < MOVING_THRESHOLD) return "Still";
+      if (absPitch >= absYaw && absPitch >= absRoll) {
+        if (speed >= HEADBANG_SPEED_THRESHOLD && Math.abs(pose.pitch) > 8) return "Headbanging";
+        return "Nodding";
+      }
+      if (absYaw >= absPitch && absYaw >= absRoll) return "Shaking";
+      return "Tilting";
+    }
+
+    function finalizeBout(now) {
+      if (!state.isMoving || state.boutStartTime == null) return;
+      const duration = now - state.boutStartTime;
+      state.boutDurationsMs.push(duration);
+      const { yaw, pitch, roll } = state.boutAxisMotion;
+      let label = "nodding";
+      if (pitch >= yaw && pitch >= roll) {
+        label = state.boutPeakSpeed >= HEADBANG_SPEED_THRESHOLD ? "headbanging" : "nodding";
+      } else if (yaw >= pitch && yaw >= roll) {
+        label = "shaking";
+      } else {
+        label = "tilting";
+      }
+      state.eventCounts[label] += 1;
+      state.isMoving = false;
+      state.boutStartTime = null;
+      state.boutAxisMotion = { yaw: 0, pitch: 0, roll: 0 };
+      state.boutPeakSpeed = 0;
+    }
+
+    function updateMotionState(pose, vel, speed, accel, dtMs, now) {
+      const amplitude = Math.hypot(pose.yaw, pose.pitch, pose.roll);
+      movementAmplitudeValue.textContent = `${amplitude.toFixed(1)} °`;
+      angularSpeedValue.textContent = `${speed.toFixed(1)} °/s`;
+      angularAccelValue.textContent = `${accel.toFixed(1)} °/s²`;
+      state.maxHeadSpeed = Math.max(state.maxHeadSpeed, speed);
+      maxHeadSpeedValue.textContent = `${state.maxHeadSpeed.toFixed(1)} °/s`;
+
+      state.currentAction = classifyInstantAction(pose, vel, speed);
+      currentActionEl.textContent = state.currentAction;
+
+      const isMovingNow = speed >= MOVING_THRESHOLD;
+      if (isMovingNow) {
+        state.movingTimeMs += dtMs;
+        if (!state.isMoving) {
+          state.isMoving = true;
+          state.boutStartTime = now;
+          state.boutAxisMotion = { yaw: 0, pitch: 0, roll: 0 };
+          state.boutPeakSpeed = speed;
+        }
+        state.boutAxisMotion.yaw += Math.abs(vel.yaw) * (dtMs / 1000);
+        state.boutAxisMotion.pitch += Math.abs(vel.pitch) * (dtMs / 1000);
+        state.boutAxisMotion.roll += Math.abs(vel.roll) * (dtMs / 1000);
+        state.boutPeakSpeed = Math.max(state.boutPeakSpeed, speed);
+      } else {
+        state.stillTimeMs += dtMs;
+        if (state.isMoving) finalizeBout(now);
+      }
+
+      if (vel.yaw >= 0) state.rightYawMotion += vel.yaw * (dtMs / 1000);
+      else state.leftYawMotion += Math.abs(vel.yaw) * (dtMs / 1000);
+
+      movingTimeValue.textContent = `${(state.movingTimeMs / 1000).toFixed(1)} s`;
+      stillTimeValue.textContent = `${(state.stillTimeMs / 1000).toFixed(1)} s`;
+      movementBoutsValue.textContent = `${state.boutDurationsMs.length + (state.isMoving ? 1 : 0)}`;
+      avgBoutValue.textContent = `${(mean(state.boutDurationsMs) / 1000 || 0).toFixed(1)} s`;
+      movementLoadValue.textContent = `${state.totalMovement.toFixed(1)} °`;
+      totalMovementValue.textContent = `${state.totalMovement.toFixed(1)} °`;
+      const maxYawSide = Math.max(state.leftYawMotion, state.rightYawMotion);
+      yawBalanceValue.textContent = maxYawSide > 0 ? `${(100 * Math.min(state.leftYawMotion, state.rightYawMotion) / maxYawSide).toFixed(0)}%` : "–";
+
+      eventNodCount.textContent = String(state.eventCounts.nodding);
+      eventShakeCount.textContent = String(state.eventCounts.shaking);
+      eventTiltCount.textContent = String(state.eventCounts.tilting);
+      eventHeadbangCount.textContent = String(state.eventCounts.headbanging);
+
+      const windowHistory = getWindowHistory();
+      if (windowHistory.length) {
+        const yawVals = windowHistory.map(s => s.pose.yaw);
+        const pitchVals = windowHistory.map(s => s.pose.pitch);
+        const rollVals = windowHistory.map(s => s.pose.roll);
+        romYawValue.textContent = `${(Math.max(...yawVals) - Math.min(...yawVals)).toFixed(1)} °`;
+        romPitchValue.textContent = `${(Math.max(...pitchVals) - Math.min(...pitchVals)).toFixed(1)} °`;
+        romRollValue.textContent = `${(Math.max(...rollVals) - Math.min(...rollVals)).toFixed(1)} °`;
+        const peakExcursion = Math.max(...windowHistory.map(s => Math.hypot(s.pose.yaw, s.pose.pitch, s.pose.roll)));
+        peakExcursionValue.textContent = `${peakExcursion.toFixed(1)} °`;
+      }
+
+      const motionHistory = getWindowHistory(MOTION_WINDOW_MS);
+      nodFreqValue.textContent = `${estimateFrequency(motionHistory, 'pitchSignal', 3.5, 220).toFixed(2)} Hz`;
+      shakeFreqValue.textContent = `${estimateFrequency(motionHistory, 'yawSignal', 3.5, 220).toFixed(2)} Hz`;
+      tiltFreqValue.textContent = `${estimateFrequency(motionHistory, 'rollSignal', 2.0, 220).toFixed(2)} Hz`;
+      headbangFreqValue.textContent = `${estimateFrequency(motionHistory, 'pitchSignal', 7.0, 150).toFixed(2)} Hz`;
+    }
+
+    function updateTrackingState(hasFace) {
+      if (hasFace) {
+        trackingState.textContent = "Tracking";
+        trackingHint.textContent = "One face detected.";
+      } else {
+        trackingState.textContent = "Searching";
+        trackingHint.textContent = "No face currently detected.";
+      }
+    }
+
+    function getFaceOvalPoints(landmarks, width, height) {
+      const ovalConnections = FaceLandmarker.FACE_LANDMARKS_FACE_OVAL;
+      const seen = new Set();
+      const indices = [];
+      for (const connection of ovalConnections) {
+        const start = connection.start ?? connection[0];
+        if (!seen.has(start)) {
+          seen.add(start);
+          indices.push(start);
+        }
+      }
+      return indices.map(index => getPoint(landmarks, index, width, height));
+    }
+
+
+    function drawLandmarkPoints(landmarks, indices = null, options = {}) {
+      const ids = indices ?? landmarks.map((_, i) => i);
+      const radius = options.radius ?? 1.6;
+      ctx.save();
+      ctx.fillStyle = options.fillStyle ?? "rgba(255, 70, 70, 0.92)";
+      for (const idx of ids) {
+        const p = getPoint(landmarks, idx);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawLandmarkLabels(landmarks, indices = null, options = {}) {
+      const ids = indices ?? landmarks.map((_, i) => i);
+      ctx.save();
+      ctx.font = options.font ?? "9px system-ui, sans-serif";
+      ctx.fillStyle = options.fillStyle ?? "rgba(255, 58, 58, 0.92)";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      for (const idx of ids) {
+        const p = getPoint(landmarks, idx);
+        ctx.fillText(String(idx), p.x + 2.5, p.y - 2.5);
+      }
+      ctx.restore();
+    }
+
+    function drawPoseOverlay(poseResult) {
+      const landmarks = poseResult?.landmarks?.[0];
+      if (!landmarks) return;
+      drawConnectorSet(landmarks, PoseLandmarker.POSE_CONNECTIONS, { color: "rgba(110, 225, 255, 0.9)", lineWidth: 2.0 });
+      ctx.save();
+      ctx.fillStyle = "rgba(230, 248, 255, 0.95)";
+      for (let i = 0; i < landmarks.length; i += 1) {
+        const lm = landmarks[i];
+        if ((lm.visibility ?? 1) < 0.35) continue;
+        const p = getPoint(landmarks, i);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, i < 11 ? 2.2 : 2.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawHandOverlay(handResult) {
+      const hands = handResult?.landmarks ?? [];
+      const handedness = handResult?.handedness ?? [];
+      for (let h = 0; h < hands.length; h += 1) {
+        const landmarks = hands[h];
+        const label = handedness[h]?.[0]?.categoryName ?? "";
+        const isLeft = label.toLowerCase() === "left";
+        const lineColor = isLeft ? "rgba(70, 220, 120, 0.95)" : "rgba(90, 180, 255, 0.95)";
+        const pointColor = isLeft ? "rgba(186, 255, 208, 0.95)" : "rgba(210, 236, 255, 0.95)";
+        drawConnectorSet(landmarks, HandLandmarker.HAND_CONNECTIONS, { color: lineColor, lineWidth: 2.0 });
+        ctx.save();
+        ctx.fillStyle = pointColor;
+        for (let i = 0; i < landmarks.length; i += 1) {
+          const p = getPoint(landmarks, i);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 2.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        const wrist = getPoint(landmarks, 0);
+        ctx.fillStyle = lineColor;
+        ctx.font = "12px system-ui, sans-serif";
+        ctx.fillText(label, wrist.x + 6, wrist.y - 10);
+        ctx.restore();
+      }
+    }
+
+    function getFaceLabelIndices() {
+      const keep = new Set([
+        1, 4, 5, 6, 8, 9, 10, 13, 14, 17,
+        33, 61, 78, 91, 95, 98, 127, 133, 145, 152,
+        159, 168, 172, 178, 181, 185, 191, 195, 197,
+        234, 263, 291, 308, 314, 317, 323, 356, 362,
+        374, 386, 389, 402, 409, 454, 468, 473
+      ]);
+      return [...keep];
+    }
+
+    function drawFaceGrid(landmarks) {
+      const width = overlay.clientWidth;
+      const height = overlay.clientHeight;
+      const ovalPoints = getFaceOvalPoints(landmarks, width, height);
+      if (ovalPoints.length < 3) return;
+
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minY = Infinity;
+      let maxY = -Infinity;
+      for (const point of ovalPoints) {
+        if (point.x < minX) minX = point.x;
+        if (point.x > maxX) maxX = point.x;
+        if (point.y < minY) minY = point.y;
+        if (point.y > maxY) maxY = point.y;
+      }
+
+      const cols = 6;
+      const rows = 8;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(ovalPoints[0].x, ovalPoints[0].y);
+      for (let i = 1; i < ovalPoints.length; i += 1) ctx.lineTo(ovalPoints[i].x, ovalPoints[i].y);
+      ctx.closePath();
+      ctx.clip();
+      ctx.strokeStyle = "rgba(175, 205, 255, 0.20)";
+      ctx.lineWidth = 0.9;
+      for (let c = 1; c < cols; c += 1) {
+        const x = minX + (maxX - minX) * (c / cols);
+        ctx.beginPath();
+        ctx.moveTo(x, minY);
+        ctx.lineTo(x, maxY);
+        ctx.stroke();
+      }
+      for (let r = 1; r < rows; r += 1) {
+        const y = minY + (maxY - minY) * (r / rows);
+        ctx.beginPath();
+        ctx.moveTo(minX, y);
+        ctx.lineTo(maxX, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawConnectorSet(landmarks, connectorSet, options = {}) {
       ctx.save();
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       ctx.strokeStyle = options.color ?? "rgba(255,255,255,0.85)";
-      ctx.lineWidth = options.lineWidth ?? 1;
+      ctx.lineWidth = options.lineWidth ?? 1.5;
       ctx.beginPath();
       for (const connection of connectorSet) {
         const start = connection.start ?? connection[0];
         const end = connection.end ?? connection[1];
-        const p1 = mapPoint(landmarks[start], rect);
-        const p2 = mapPoint(landmarks[end], rect);
+        const p1 = getPoint(landmarks, start);
+        const p2 = getPoint(landmarks, end);
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
       }
@@ -625,402 +1490,101 @@
       ctx.restore();
     }
 
-    function drawPoint(point, rect, radius, fill, stroke = null, lineWidth = 0) {
-      const p = mapPoint(point, rect);
+    function drawCircle(x, y, radius, strokeStyle, lineWidth, fillStyle = null) {
       ctx.beginPath();
-      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-      if (fill) {
-        ctx.fillStyle = fill;
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      if (fillStyle) {
+        ctx.fillStyle = fillStyle;
         ctx.fill();
       }
-      if (stroke) {
-        ctx.strokeStyle = stroke;
+      if (strokeStyle && lineWidth > 0) {
+        ctx.strokeStyle = strokeStyle;
         ctx.lineWidth = lineWidth;
         ctx.stroke();
       }
     }
 
-    function drawFaceOverlay(face, rect) {
-      const landmarks = face.landmarks;
-      if (!landmarks) return;
-
-      ctx.save();
-      ctx.shadowColor = "rgba(96, 165, 250, 0.10)";
-      ctx.shadowBlur = 6;
-      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, rect, { color: "rgba(168, 196, 230, 0.22)", lineWidth: 0.65 });
-      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, rect, { color: "rgba(215, 228, 245, 0.92)", lineWidth: 1.6 });
-      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW, rect, { color: "rgba(118, 146, 245, 0.95)", lineWidth: 1.25 });
-      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW, rect, { color: "rgba(126, 245, 126, 0.95)", lineWidth: 1.25 });
-      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, rect, { color: "rgba(63, 106, 255, 1)", lineWidth: 1.55 });
-      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, rect, { color: "rgba(34, 255, 34, 1)", lineWidth: 1.55 });
-      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_IRIS, rect, { color: "rgba(63, 106, 255, 1)", lineWidth: 1.35 });
-      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS, rect, { color: "rgba(34, 255, 34, 1)", lineWidth: 1.35 });
-      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, rect, { color: "rgba(240, 240, 245, 0.95)", lineWidth: 1.4 });
-      ctx.restore();
-
-      for (let i = 0; i < landmarks.length; i += 1) {
-        const isFeature = FACE_LABEL_INDICES.includes(i);
-        drawPoint(landmarks[i], rect, isFeature ? 1.7 : 1.1, "rgba(255, 64, 64, 0.85)");
-      }
-
-      if (labelsEnabled) {
-        ctx.save();
-        ctx.fillStyle = "rgba(255, 64, 64, 0.95)";
-        ctx.font = "10px system-ui, sans-serif";
-        for (const idx of FACE_LABEL_INDICES) {
-          const p = mapPoint(landmarks[idx], rect);
-          ctx.fillText(String(idx), p.x + 2, p.y - 2);
-        }
-        ctx.restore();
-      }
-    }
-
-    function drawHandOverlay(hands, rect) {
-      if (!hands || !hands.length) return;
-      const colours = [
-        { line: "rgba(255, 196, 76, 0.95)", point: "rgba(255, 226, 140, 0.95)" },
-        { line: "rgba(96, 214, 255, 0.95)", point: "rgba(176, 236, 255, 0.95)" }
-      ];
-      hands.forEach((hand, index) => {
-        const c = colours[index % colours.length];
-        drawConnectorSet(hand.landmarks, HandLandmarker.HAND_CONNECTIONS, rect, { color: c.line, lineWidth: 1.8 });
-        for (const point of hand.landmarks) drawPoint(point, rect, 2.3, c.point);
-      });
-    }
-
-    function drawPoseOverlay(pose, rect) {
-      if (!pose?.landmarks) return;
-      drawConnectorSet(pose.landmarks, PoseLandmarker.POSE_CONNECTIONS, rect, { color: "rgba(196, 170, 255, 0.92)", lineWidth: 1.8 });
-      for (const point of pose.landmarks) {
-        drawPoint(point, rect, 2.4, "rgba(223, 196, 255, 0.88)");
-      }
-    }
-
-    function updateUI(result) {
-      latestResult = result;
-      trackingStateEl.textContent = result.face ? "Tracking" : "Searching";
-      currentActionEl.textContent = result.face?.currentAction ?? "No face";
-
-      if (result.face?.pose) {
-        yawValueEl.textContent = `${result.face.pose.yaw.toFixed(1)}°`;
-        pitchValueEl.textContent = `${result.face.pose.pitch.toFixed(1)}°`;
-        rollValueEl.textContent = `${result.face.pose.roll.toFixed(1)}°`;
-        setBar(yawBar, result.face.pose.yaw);
-        setBar(pitchBar, result.face.pose.pitch);
-        setBar(rollBar, result.face.pose.roll);
-      } else {
-        yawValueEl.textContent = "0.0°";
-        pitchValueEl.textContent = "0.0°";
-        rollValueEl.textContent = "0.0°";
-        setBar(yawBar, 0); setBar(pitchBar, 0); setBar(rollBar, 0);
-      }
-
-      const face = result.face;
-      metricEls.angularSpeedValue.textContent = fmt(face?.angularSpeed, 1, " °/s");
-      metricEls.angularAccelValue.textContent = fmt(face?.angularAccel, 1, " °/s²");
-      metricEls.movementAmplitudeValue.textContent = fmt(face?.movementAmplitude, 1, " °");
-      metricEls.peakExcursionValue.textContent = fmt(face?.peakExcursion, 1, " °");
-      metricEls.romYawValue.textContent = fmt(face?.romYaw, 1, " °");
-      metricEls.romPitchValue.textContent = fmt(face?.romPitch, 1, " °");
-      metricEls.romRollValue.textContent = fmt(face?.romRoll, 1, " °");
-      metricEls.totalMovementValue.textContent = fmt(face?.totalMovement, 1, " °");
-
-      metricEls.nodFreqValue.textContent = fmt(face?.frequencies?.nod, 2, " Hz");
-      metricEls.shakeFreqValue.textContent = fmt(face?.frequencies?.shake, 2, " Hz");
-      metricEls.tiltFreqValue.textContent = fmt(face?.frequencies?.tilt, 2, " Hz");
-      metricEls.headbangFreqValue.textContent = fmt(face?.frequencies?.headbang, 2, " Hz");
-
-      if (face?.distance?.value != null) {
-        if (face.distance.mode === "calibrated") {
-          distanceValueEl.textContent = `${face.distance.value.toFixed(1)} cm`;
-          distanceHintEl.textContent = "Approximate calibrated estimate from apparent face size.";
-        } else {
-          distanceValueEl.textContent = `${face.distance.value.toFixed(2)}×`;
-          distanceHintEl.textContent = "Relative proximity proxy only. Larger means closer.";
-        }
-      } else {
-        distanceValueEl.textContent = "–";
-        distanceHintEl.textContent = "Set a reference distance for a rough centimetre estimate.";
-      }
-
-      metricEls.faceWidthPxValue.textContent = fmt(face?.geometry?.faceWidthPx, 0, " px");
-      metricEls.interEyePxValue.textContent = fmt(face?.geometry?.interEyePx, 0, " px");
-      metricEls.irisDiameterPxValue.textContent = fmt(face?.geometry?.irisDiameterPx, 1, " px");
-      metricEls.mouthWidthValue.textContent = fmt(face?.geometry?.mouthWidthPx, 0, " px");
-      metricEls.mouthHeightValue.textContent = fmt(face?.geometry?.mouthHeightPx, 0, " px");
-      metricEls.mouthAspectValue.textContent = fmt(face?.geometry?.mouthAspect, 3, "");
-      metricEls.earLeftValue.textContent = fmt(face?.geometry?.earLeft, 3, "");
-      metricEls.earRightValue.textContent = fmt(face?.geometry?.earRight, 3, "");
-      metricEls.browLeftValue.textContent = fmt(face?.geometry?.browLeftPx, 0, " px");
-      metricEls.browRightValue.textContent = fmt(face?.geometry?.browRightPx, 0, " px");
-      metricEls.faceRatioValue.textContent = fmt(face?.geometry?.faceRatio, 3, "");
-
-      const exprMap = {
-        Blink: face?.expressions?.blink,
-        Open: face?.expressions?.eyeOpen,
-        BrowRaise: face?.expressions?.browRaise,
-        BrowFurrow: face?.expressions?.browFurrow,
-        Smile: face?.expressions?.smile,
-        LipPress: face?.expressions?.lipPress,
-        LipStretch: face?.expressions?.lipStretch,
-        CheekPuff: face?.expressions?.cheekPuff,
-        JawOpen: face?.expressions?.jawOpen,
-        Squint: face?.expressions?.squint
+    function drawFace(landmarks) {
+      const featureStyle = {
+        tesselation: { color: "rgba(120, 140, 150, 0.52)", lineWidth: 0.65 },
+        oval: { color: "rgba(255, 255, 255, 0.95)", lineWidth: 1.5 },
+        leftBrow: { color: "rgba(55, 95, 255, 0.98)", lineWidth: 1.8 },
+        rightBrow: { color: "rgba(85, 255, 120, 0.98)", lineWidth: 1.8 },
+        leftEye: { color: "rgba(55, 95, 255, 0.98)", lineWidth: 1.8 },
+        rightEye: { color: "rgba(85, 255, 120, 0.98)", lineWidth: 1.8 },
+        irisLeft: { color: "rgba(35, 70, 255, 0.98)", lineWidth: 1.7 },
+        irisRight: { color: "rgba(40, 220, 70, 0.98)", lineWidth: 1.7 },
+        lips: { color: "rgba(255, 255, 255, 0.9)", lineWidth: 1.35 },
+        nose: { color: "rgba(255, 90, 90, 0.78)", lineWidth: 1.2 }
       };
-      for (const [key, value] of Object.entries(exprMap)) {
-        const pct = Math.max(0, Math.min(1, value ?? 0));
-        exprEls[key].bar.style.width = `${pct * 100}%`;
-        exprEls[key].value.textContent = `${Math.round(pct * 100)}%`;
-      }
 
-      metricEls.movingTimeValue.textContent = fmt(face?.behaviour?.movingTime, 1, " s");
-      metricEls.stillTimeValue.textContent = fmt(face?.behaviour?.stillTime, 1, " s");
-      metricEls.movementBoutsValue.textContent = face?.behaviour?.movementBouts != null ? String(face.behaviour.movementBouts) : "–";
-      metricEls.avgBoutValue.textContent = fmt(face?.behaviour?.avgBout, 1, " s");
-      metricEls.maxHeadSpeedValue.textContent = fmt(face?.behaviour?.maxHeadSpeed, 1, " °/s");
-      metricEls.movementLoadValue.textContent = fmt(face?.behaviour?.movementLoad, 1, " °");
-      metricEls.yawBalanceValue.textContent = face?.behaviour?.yawBalance != null ? face.behaviour.yawBalance.toFixed(2) : "–";
-
-      if (result.hands?.length) {
-        handSummaryEl.innerHTML = result.hands.map(hand => {
-          return `<div><strong>${hand.label}</strong>: openness ${hand.openness.toFixed(2)}, pinch ${hand.pinch.toFixed(2)}</div>`;
-        }).join("");
-      } else {
-        handSummaryEl.textContent = "No hands detected.";
-      }
-
-      if (result.pose) {
-        poseSummaryEl.innerHTML = `
-          <div>Shoulder width: ${(result.pose.shoulderWidthNorm * 100).toFixed(1)}% of frame</div>
-          <div>Torso lean: ${result.pose.torsoLeanDeg.toFixed(1)}°</div>
-          <div>Hands raised: ${result.pose.leftHandRaised ? "left " : ""}${result.pose.rightHandRaised ? "right" : (!result.pose.leftHandRaised ? "none" : "")}</div>
-        `;
-      } else {
-        poseSummaryEl.textContent = "No body pose detected.";
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, featureStyle.tesselation);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, featureStyle.oval);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW, featureStyle.leftBrow);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW, featureStyle.rightBrow);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, featureStyle.leftEye);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, featureStyle.rightEye);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_IRIS, featureStyle.irisLeft);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS, featureStyle.irisRight);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, featureStyle.lips);
+      drawConnectorSet(landmarks, FaceLandmarker.FACE_LANDMARKS_NOSE, featureStyle.nose);
+      drawLandmarkPoints(landmarks, null, { radius: 1.35, fillStyle: "rgba(255, 52, 52, 0.96)" });
+      if (showFaceIds) {
+        drawLandmarkLabels(landmarks, getFaceLabelIndices(), { font: "10px system-ui, sans-serif", fillStyle: "rgba(255, 52, 52, 0.96)" });
       }
     }
 
-    function resetUI() {
-      trackingStateEl.textContent = "Waiting";
-      currentActionEl.textContent = "Still";
-      fpsValueEl.textContent = "0";
-      distanceValueEl.textContent = "–";
-      distanceHintEl.textContent = "Set a reference distance for a rough centimetre estimate.";
-      handSummaryEl.textContent = "No hands detected.";
-      poseSummaryEl.textContent = "No body pose detected.";
-      for (const el of Object.values(metricEls)) el.textContent = "–";
-      metricEls.movementBoutsValue.textContent = "0";
-      yawValueEl.textContent = "0.0°";
-      pitchValueEl.textContent = "0.0°";
-      rollValueEl.textContent = "0.0°";
-      setBar(yawBar, 0); setBar(pitchBar, 0); setBar(rollBar, 0);
-      for (const obj of Object.values(exprEls)) {
-        obj.bar.style.width = "0%";
-        obj.value.textContent = "0%";
+    function updateFps(now = performance.now()) {
+      frameCounter += 1;
+      const elapsed = now - lastFpsTime;
+      if (elapsed >= 500) {
+        fpsValue.textContent = Math.round(frameCounter * 1000 / elapsed).toString();
+        frameCounter = 0;
+        lastFpsTime = now;
       }
     }
 
-    function drawAll(result) {
-      clearOverlay();
-      const rect = getVideoDrawRect();
-      if (result?.face) drawFaceOverlay(result.face, rect);
-      if (result?.hands?.length) drawHandOverlay(result.hands, rect);
-      if (result?.pose) drawPoseOverlay(result.pose, rect);
+    function updatePoseUI(pose) {
+      yawValue.textContent = formatAngle(pose.yaw);
+      pitchValue.textContent = formatAngle(pose.pitch);
+      rollValue.textContent = formatAngle(pose.roll);
+      setBar(yawBar, pose.yaw);
+      setBar(pitchBar, pose.pitch);
+      setBar(rollBar, pose.roll);
     }
 
-    function createWorker() {
-      const blob = new Blob([workerSource], { type: "text/javascript" });
-      const url = URL.createObjectURL(blob);
-      const instance = new Worker(url, { type: "module" });
-      URL.revokeObjectURL(url);
-      return instance;
-    }
-
-    function initWorker() {
-      worker = createWorker();
-      worker.onmessage = (event) => {
-        const data = event.data;
-        if (data.type === "ready") {
-          workerReady = true;
-          startBtn.disabled = false;
-          setStatus("Worker and models ready. Click ‘Start camera’.", "ok");
-          return;
-        }
-        if (data.type === "status") {
-          setStatus(data.message, data.status === "info" ? "" : data.status);
-          return;
-        }
-        if (data.type === "result") {
-          frameInFlight = false;
-          updateFpsDisplay();
-          updateUI(data.result);
-          drawAll(data.result);
-          updateAvatar3D(data.result);
-          return;
-        }
-      };
-      worker.postMessage({ type: "init" });
-    }
-
-    function stopScheduling() {
-      if (useVideoFrameCallback && scheduledFrameHandle != null && typeof video.cancelVideoFrameCallback === "function") {
-        video.cancelVideoFrameCallback(scheduledFrameHandle);
-      } else if (scheduledFrameHandle != null) {
-        cancelAnimationFrame(scheduledFrameHandle);
-      }
-      scheduledFrameHandle = null;
-    }
-
-    function scheduleNextFrame() {
-      stopScheduling();
-      if (!running) return;
-      useVideoFrameCallback = typeof video.requestVideoFrameCallback === "function";
-      if (useVideoFrameCallback) {
-        scheduledFrameHandle = video.requestVideoFrameCallback(handleVideoFrame);
-      } else {
-        scheduledFrameHandle = requestAnimationFrame(() => handleVideoFrame(performance.now()));
-      }
-    }
-
-    async function handleVideoFrame(now, metadata) {
-      if (!running) return;
-      if (!workerReady || !video.videoWidth || !video.videoHeight) {
-        scheduleNextFrame();
-        return;
-      }
-      if (!frameInFlight) {
-        try {
-          const bitmap = await createImageBitmap(video);
-          frameInFlight = true;
-          worker.postMessage({
-            type: "frame",
-            imageBitmap: bitmap,
-            timestampMs: metadata?.expectedDisplayTime ?? now ?? performance.now(),
-            width: video.videoWidth,
-            height: video.videoHeight
-          }, [bitmap]);
-        } catch (error) {
-          frameInFlight = false;
-          setStatus(`Frame capture failed: ${error.message}`, "warn");
-        }
-      }
-      scheduleNextFrame();
-    }
-
-    async function startCamera() {
-      if (!workerReady) {
-        setStatus("Models are still loading in the worker. Please wait.", "warn");
-        return;
-      }
-      try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        });
-        video.srcObject = mediaStream;
-        await video.play();
-        running = true;
-        frameInFlight = false;
-        resizeOverlay();
-        scheduleNextFrame();
-
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-        calibrateBtn.disabled = false;
-        distanceRefBtn.disabled = false;
-        setStatus("Camera started. Tracking runs inside a background worker.", "ok");
-      } catch (error) {
-        let message = error.message || String(error);
-        if (error.name === "NotAllowedError") {
-          message = "Camera permission denied. Allow camera access for Chrome and for this site.";
-        } else if (error.name === "NotFoundError") {
-          message = "No camera was found on this device.";
-        }
-        setStatus(message, "warn");
-      }
-    }
-
-    function stopCamera() {
-      running = false;
-      stopScheduling();
-      frameInFlight = false;
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-      }
-      video.pause();
-      video.srcObject = null;
-
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-      calibrateBtn.disabled = true;
-      distanceRefBtn.disabled = true;
-      resetUI();
-      clearOverlay();
-      updateAvatar3D(null);
-      worker?.postMessage({ type: "resetSession" });
-      setStatus("Camera stopped.", "");
-    }
-
-    function calibrateNeutralPose() {
-      worker?.postMessage({ type: "calibrateNeutral" });
-    }
-
-    function setReferenceDistance() {
-      if (!video.videoWidth) return;
-      const answer = window.prompt("Current face-to-camera distance in cm:", "60");
-      if (answer == null) return;
-      const cm = Number(answer);
-      if (!Number.isFinite(cm) || cm <= 0) {
-        setStatus("Please enter a positive distance in centimetres.", "warn");
-        return;
-      }
-      worker?.postMessage({
-        type: "setReferenceDistance",
-        cm,
-        imageWidth: video.videoWidth
-      });
-    }
-
-    function toggleLabels() {
-      labelsEnabled = !labelsEnabled;
-      labelsBtn.textContent = labelsEnabled ? "IDs: on" : "IDs: off";
-      if (latestResult) drawAll(latestResult);
-    }
 
     function initAvatar3D() {
+      if (!avatar3dEl || avatarRenderer) return;
+
       avatarScene = new THREE.Scene();
       avatarScene.background = new THREE.Color(0x0b1118);
 
       avatarCamera = new THREE.PerspectiveCamera(32, 1, 0.01, 100);
-      avatarCamera.position.set(0, 0.1, 2.2);
+      avatarCamera.position.set(0, 0.10, 2.25);
       avatarCamera.lookAt(0, 0.15, 0);
 
       avatarRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
       avatarRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       avatar3dEl.appendChild(avatarRenderer.domElement);
 
+      const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+      avatarScene.add(ambient);
+
+      const key = new THREE.DirectionalLight(0xbdd8ff, 1.2);
+      key.position.set(1.2, 2.0, 2.2);
+      avatarScene.add(key);
+
+      const fill = new THREE.DirectionalLight(0x7ab8ff, 0.35);
+      fill.position.set(-1.4, 0.5, 1.0);
+      avatarScene.add(fill);
+
       avatarRoot = new THREE.Group();
       avatarScene.add(avatarRoot);
 
-      const ambient = new THREE.AmbientLight(0xffffff, 0.82);
-      avatarScene.add(ambient);
-
-      const key = new THREE.DirectionalLight(0xcfe4ff, 1.18);
-      key.position.set(1.2, 1.9, 2.2);
-      avatarScene.add(key);
-
-      const fill = new THREE.DirectionalLight(0x7bb8ff, 0.35);
-      fill.position.set(-1.5, 0.5, 1.0);
-      avatarScene.add(fill);
-
       const floor = new THREE.Mesh(
         new THREE.CircleGeometry(0.9, 48),
-        new THREE.MeshBasicMaterial({ color: 0x0f1722, transparent: true, opacity: 0.62 })
+        new THREE.MeshBasicMaterial({ color: 0x0f1722, transparent: true, opacity: 0.65 })
       );
       floor.rotation.x = -Math.PI / 2;
       floor.position.y = -0.95;
@@ -1028,23 +1592,20 @@
 
       const boneGeometry = new THREE.BufferGeometry();
       boneGeometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(BODY_CONNECTIONS.length * 2 * 3), 3));
-      avatarBoneLine = new THREE.LineSegments(
-        boneGeometry,
-        new THREE.LineBasicMaterial({ color: 0xaed3ff, transparent: true, opacity: 0.95 })
-      );
+      const boneMaterial = new THREE.LineBasicMaterial({ color: 0xaed3ff, transparent: true, opacity: 0.95 });
+      avatarBoneLine = new THREE.LineSegments(boneGeometry, boneMaterial);
       avatarRoot.add(avatarBoneLine);
 
       const neckGeometry = new THREE.BufferGeometry();
       neckGeometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(2 * 3), 3));
-      avatarNeckLine = new THREE.Line(
-        neckGeometry,
-        new THREE.LineBasicMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.95 })
-      );
+      const neckMaterial = new THREE.LineBasicMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.95 });
+      avatarNeckLine = new THREE.Line(neckGeometry, neckMaterial);
       avatarRoot.add(avatarNeckLine);
 
-      const jointGeo = new THREE.SphereGeometry(0.03, 18, 18);
+      const jointGeo = new THREE.SphereGeometry(0.03, 20, 20);
       const majorMat = new THREE.MeshStandardMaterial({ color: 0xe5f2ff, roughness: 0.55, metalness: 0.08 });
       const minorMat = new THREE.MeshStandardMaterial({ color: 0x9cc9ff, roughness: 0.7, metalness: 0.04 });
+
       for (const idx of AVATAR_JOINTS) {
         const mesh = new THREE.Mesh(jointGeo, [11, 12, 23, 24].includes(idx) ? majorMat : minorMat);
         mesh.visible = false;
@@ -1083,7 +1644,7 @@
     }
 
     function resizeAvatar3D() {
-      if (!avatarRenderer || !avatarCamera) return;
+      if (!avatarRenderer || !avatar3dEl || !avatarCamera) return;
       const width = Math.max(1, avatar3dEl.clientWidth);
       const height = Math.max(1, avatar3dEl.clientHeight);
       avatarRenderer.setSize(width, height, false);
@@ -1092,6 +1653,7 @@
     }
 
     function renderAvatar3D() {
+      if (!avatarRenderer || !avatarScene || !avatarCamera) return;
       avatarRenderer.render(avatarScene, avatarCamera);
       avatarAnimationId = requestAnimationFrame(renderAvatar3D);
     }
@@ -1110,11 +1672,14 @@
       return out.multiplyScalar(1 / points.length);
     }
 
-    function updateAvatar3D(result) {
+    function getPoseWorldLandmarks(poseResult) {
+      return poseResult?.worldLandmarks?.[0] ?? null;
+    }
+
+    function updateAvatar3D(facePose, poseResult) {
       if (!avatarRoot) return;
-      const pose = result?.pose;
-      const face = result?.face;
-      const world = pose?.worldLandmarks;
+
+      const world = getPoseWorldLandmarks(poseResult);
       if (!world) {
         avatarRoot.visible = false;
         return;
@@ -1128,10 +1693,15 @@
       for (const [a, b] of BODY_CONNECTIONS) {
         const p1 = mapped[a];
         const p2 = mapped[b];
-        bonePositions[offset++] = p1.x; bonePositions[offset++] = p1.y; bonePositions[offset++] = p1.z;
-        bonePositions[offset++] = p2.x; bonePositions[offset++] = p2.y; bonePositions[offset++] = p2.z;
+        bonePositions[offset++] = p1.x;
+        bonePositions[offset++] = p1.y;
+        bonePositions[offset++] = p1.z;
+        bonePositions[offset++] = p2.x;
+        bonePositions[offset++] = p2.y;
+        bonePositions[offset++] = p2.z;
       }
       avatarBoneLine.geometry.attributes.position.needsUpdate = true;
+      avatarBoneLine.geometry.computeBoundingSphere();
 
       for (const idx of AVATAR_JOINTS) {
         const mesh = avatarJointMeshes.get(idx);
@@ -1146,41 +1716,405 @@
       const headAnchor = ((world[7]?.visibility ?? 0) > 0.35 && (world[8]?.visibility ?? 0) > 0.35)
         ? averageThreePoints([mapped[7], mapped[8]])
         : mapped[0].clone();
+
       const headCenter = headAnchor.clone();
       headCenter.y += 0.05;
 
-      avatarHeadGroup.position.copy(headCenter);
       avatarHeadGroup.visible = true;
-      avatarHeadGroup.rotation.set(
-        THREE.MathUtils.degToRad(face?.pose?.pitch ?? 0),
-        THREE.MathUtils.degToRad(-(face?.pose?.yaw ?? 0)),
-        THREE.MathUtils.degToRad(-(face?.pose?.roll ?? 0))
-      );
+      avatarHeadGroup.position.copy(headCenter);
+
+      if (facePose) {
+        avatarHeadGroup.rotation.set(
+          THREE.MathUtils.degToRad(facePose.pitch),
+          THREE.MathUtils.degToRad(-facePose.yaw),
+          THREE.MathUtils.degToRad(-facePose.roll)
+        );
+      }
 
       const neckPositions = avatarNeckLine.geometry.attributes.position.array;
-      neckPositions[0] = shoulderMid.x; neckPositions[1] = shoulderMid.y; neckPositions[2] = shoulderMid.z;
-      neckPositions[3] = headCenter.x; neckPositions[4] = headCenter.y - 0.11; neckPositions[5] = headCenter.z;
+      neckPositions[0] = shoulderMid.x;
+      neckPositions[1] = shoulderMid.y;
+      neckPositions[2] = shoulderMid.z;
+      neckPositions[3] = headCenter.x;
+      neckPositions[4] = headCenter.y - 0.11;
+      neckPositions[5] = headCenter.z;
       avatarNeckLine.geometry.attributes.position.needsUpdate = true;
+      avatarNeckLine.geometry.computeBoundingSphere();
     }
+
+    function clearMetricsForNoFace() {
+      updateTrackingState(false);
+      currentActionEl.textContent = "Still";
+      updateDistanceUI(null);
+      updateGeometryUI(null);
+      angularSpeedValue.textContent = "0.0 °/s";
+      angularAccelValue.textContent = "0.0 °/s²";
+      movementAmplitudeValue.textContent = "0.0 °";
+      for (const key of Object.keys(expressionEls)) updateMiniMetric(key, 0);
+    }
+
+    function processFrame(result, poseResult, handResult, now) {
+      clearOverlay();
+      drawPoseOverlay(poseResult);
+      drawHandOverlay(handResult, now);
+
+      const landmarks = result?.faceLandmarks?.[0];
+      const hasFace = Boolean(landmarks);
+      updateTrackingState(hasFace);
+
+      if (!hasFace) {
+        clearMetricsForNoFace();
+        updateAvatar3D(null, poseResult);
+        return;
+      }
+
+      drawFace(landmarks);
+
+      const pose = estimatePose(result);
+      if (!pose) {
+        updateAvatar3D(null, poseResult);
+        return;
+      }
+      updatePoseUI(pose);
+      updateAvatar3D(pose, poseResult);
+
+      const geometry = calculateGeometry(landmarks);
+      updateDistanceUI(geometry);
+      updateGeometryUI(geometry);
+
+      const blend = getBlendshapeMap(result);
+      const expressions = deriveExpressions(blend);
+      updateExpressionUI(expressions);
+
+      if (state.prevPose && state.prevTime != null) {
+        const dtSec = Math.max((now - state.prevTime) / 1000, 1 / 120);
+        const dtMs = now - state.prevTime;
+        const deltaYaw = pose.yaw - state.prevPose.yaw;
+        const deltaPitch = pose.pitch - state.prevPose.pitch;
+        const deltaRoll = pose.roll - state.prevPose.roll;
+        const vel = {
+          yaw: deltaYaw / dtSec,
+          pitch: deltaPitch / dtSec,
+          roll: deltaRoll / dtSec
+        };
+        const speed = Math.hypot(vel.yaw, vel.pitch, vel.roll);
+        const accel = Math.abs(speed - state.prevSpeed) / dtSec;
+
+        state.totalMovement += Math.hypot(deltaYaw, deltaPitch, deltaRoll);
+        state.history.push({
+          t: now,
+          pose: { ...pose },
+          speed,
+          pitchSignal: pose.pitch,
+          yawSignal: pose.yaw,
+          rollSignal: pose.roll
+        });
+        state.history = state.history.filter(item => now - item.t <= HISTORY_WINDOW_MS);
+
+        updateMotionState(pose, vel, speed, accel, dtMs, now);
+        state.prevSpeed = speed;
+      }
+
+      state.prevPose = { ...pose };
+      state.prevTime = now;
+    }
+
+
+    function describeCameraError(error) {
+      const name = error?.name ?? "Error";
+      if (name === "NotAllowedError" || name === "SecurityError") {
+        return "Camera permission was denied. Allow camera access for Chrome and for this site, then reload the page.";
+      }
+      if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+        return "No camera was found on this device.";
+      }
+      if (name === "NotReadableError" || name === "TrackStartError") {
+        return "The camera is already in use by another app, or the device could not start it.";
+      }
+      if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
+        return "The requested camera settings are not supported on this device. Try again with lower resolution.";
+      }
+      return error?.message || "Unknown camera error.";
+    }
+
+    function resetCachedTaskResults() {
+      state.lastHandProcessTime = -Infinity;
+      state.lastPoseProcessTime = -Infinity;
+      state.lastHandLabelTime = -Infinity;
+      state.cachedHandResult = null;
+      state.cachedPoseResult = null;
+    }
+
+    function processCurrentVideoFrame(timestamp) {
+      const faceResult = faceLandmarker.detectForVideo(video, timestamp);
+
+      if (!state.cachedHandResult || timestamp - state.lastHandProcessTime >= HAND_UPDATE_INTERVAL_MS) {
+        state.cachedHandResult = handLandmarker.detectForVideo(video, timestamp);
+        state.lastHandProcessTime = timestamp;
+      }
+
+      if (!state.cachedPoseResult || timestamp - state.lastPoseProcessTime >= POSE_UPDATE_INTERVAL_MS) {
+        state.cachedPoseResult = poseLandmarker.detectForVideo(video, timestamp);
+        state.lastPoseProcessTime = timestamp;
+      }
+
+      processFrame(faceResult, state.cachedPoseResult, state.cachedHandResult, timestamp);
+      updateFps(timestamp);
+    }
+
+    function scheduleNextFrame() {
+      if (!mediaStream) return;
+      if (typeof video.requestVideoFrameCallback === "function") {
+        state.videoFrameCallbackId = video.requestVideoFrameCallback(handleVideoFrame);
+      } else {
+        animationFrameId = requestAnimationFrame(renderLoopFallback);
+      }
+    }
+
+    function handleVideoFrame(now, metadata) {
+      state.videoFrameCallbackId = null;
+      if (!mediaStream) return;
+      if (video.readyState >= 2) {
+        lastVideoTime = metadata?.mediaTime ?? video.currentTime;
+        processCurrentVideoFrame(now);
+      }
+      scheduleNextFrame();
+    }
+
+    function renderLoopFallback() {
+      if (!mediaStream) return;
+      if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+        lastVideoTime = video.currentTime;
+        processCurrentVideoFrame(performance.now());
+      }
+      animationFrameId = requestAnimationFrame(renderLoopFallback);
+    }
+
+    function stopFrameScheduling() {
+      if (state.videoFrameCallbackId != null && typeof video.cancelVideoFrameCallback === "function") {
+        video.cancelVideoFrameCallback(state.videoFrameCallbackId);
+        state.videoFrameCallbackId = null;
+      }
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+
+    function renderLoop() {
+      scheduleNextFrame();
+    }
+
+    async function startCamera() {
+      if (!faceLandmarker || !handLandmarker || !poseLandmarker) {
+        setStatus("The models are still loading. Please wait a moment.", "warn");
+        return;
+      }
+      try {
+        const mobile = window.matchMedia("(max-width: 900px)").matches;
+        const constraints = {
+          audio: false,
+          video: {
+            facingMode: "user",
+            width: { ideal: mobile ? 960 : 1280 },
+            height: { ideal: mobile ? 540 : 720 }
+          }
+        };
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = mediaStream;
+        await video.play();
+        resizeOverlay();
+        resetCachedTaskResults();
+        stopFrameScheduling();
+        renderLoop();
+        lastFpsTime = performance.now();
+        frameCounter = 0;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        calibrateBtn.disabled = false;
+        distanceRefBtn.disabled = false;
+        setStatus("Camera started. Look straight at the camera and click ‘Set neutral pose’. Use ‘Set reference distance’ if you want an approximate centimetre estimate.", "ok");
+      } catch (error) {
+        setStatus(`Could not start the camera: ${describeCameraError(error)}`, "warn");
+      }
+    }
+
+    function resetDerivedState() {
+      state.prevPose = null;
+      state.prevTime = null;
+      state.prevSpeed = 0;
+      state.totalMovement = 0;
+      state.movingTimeMs = 0;
+      state.stillTimeMs = 0;
+      state.maxHeadSpeed = 0;
+      state.history = [];
+      state.leftYawMotion = 0;
+      state.rightYawMotion = 0;
+      state.isMoving = false;
+      state.boutStartTime = null;
+      state.boutDurationsMs = [];
+      state.boutAxisMotion = { yaw: 0, pitch: 0, roll: 0 };
+      state.boutPeakSpeed = 0;
+      state.currentAction = "Still";
+      state.eventCounts = { nodding: 0, shaking: 0, tilting: 0, headbanging: 0 };
+      currentActionEl.textContent = "Still";
+      movingTimeValue.textContent = "0.0 s";
+      stillTimeValue.textContent = "0.0 s";
+      movementBoutsValue.textContent = "0";
+      avgBoutValue.textContent = "0.0 s";
+      maxHeadSpeedValue.textContent = "0.0 °/s";
+      movementLoadValue.textContent = "0.0 °";
+      totalMovementValue.textContent = "0.0 °";
+      yawBalanceValue.textContent = "–";
+      peakExcursionValue.textContent = "0.0 °";
+      romYawValue.textContent = "0.0 °";
+      romPitchValue.textContent = "0.0 °";
+      romRollValue.textContent = "0.0 °";
+      nodFreqValue.textContent = "0.00 Hz";
+      shakeFreqValue.textContent = "0.00 Hz";
+      tiltFreqValue.textContent = "0.00 Hz";
+      headbangFreqValue.textContent = "0.00 Hz";
+      eventNodCount.textContent = "0";
+      eventShakeCount.textContent = "0";
+      eventTiltCount.textContent = "0";
+      eventHeadbangCount.textContent = "0";
+    }
+
+    function stopCamera() {
+      stopFrameScheduling();
+      lastVideoTime = -1;
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+      if (state.isMoving) finalizeBout(performance.now());
+      video.pause();
+      video.srcObject = null;
+      clearOverlay();
+      updateAvatar3D(null, null);
+      resetPoseUI();
+      resetCachedTaskResults();
+      resetDerivedState();
+      clearMetricsForNoFace();
+      trackingState.textContent = "Stopped";
+      trackingHint.textContent = "Camera stream is off.";
+      lastFpsTime = performance.now();
+      frameCounter = 0;
+      fpsValue.textContent = "0";
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      calibrateBtn.disabled = true;
+      distanceRefBtn.disabled = true;
+      setStatus("Camera stopped.");
+    }
+
+    function calibrateNeutralPose() {
+      if (!faceLandmarker || video.readyState < 2) {
+        setStatus("Start the camera before calibrating.", "warn");
+        return;
+      }
+      const result = faceLandmarker.detectForVideo(video, performance.now());
+      const rotation = matrixToRotation3x3(result?.facialTransformationMatrixes?.[0]);
+      if (!rotation) {
+        setStatus("No face was detected. Look at the camera and try again.", "warn");
+        return;
+      }
+      neutralRotation = rotation;
+      neutralState.textContent = "Manually set";
+      setStatus("Neutral pose stored.", "ok");
+    }
+
+    function setReferenceDistance() {
+      if (!faceLandmarker || video.readyState < 2) {
+        setStatus("Start the camera before setting a reference distance.", "warn");
+        return;
+      }
+      const result = faceLandmarker.detectForVideo(video, performance.now());
+      const faceWidth = currentFaceWidthPxFromResult(result);
+      if (!faceWidth) {
+        setStatus("No face was detected. Look at the camera and try again.", "warn");
+        return;
+      }
+      const answer = window.prompt("Current face-to-camera distance in cm:", referenceDistanceCm ? String(referenceDistanceCm) : "60");
+      if (answer === null) return;
+      const value = Number(answer);
+      if (!Number.isFinite(value) || value <= 0) {
+        setStatus("Please enter a positive distance in centimetres.", "warn");
+        return;
+      }
+      referenceDistanceCm = value;
+      referenceFaceWidthPx = faceWidth;
+      setStatus("Reference distance stored. The distance readout now uses that calibration.", "ok");
+    }
+
+    async function init() {
+      try {
+        initAvatar3D();
+        const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+        faceLandmarker = await FaceLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: MODEL_URL },
+          runningMode: "VIDEO",
+          numFaces: 1,
+          minFaceDetectionConfidence: 0.5,
+          minFacePresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+          outputFaceBlendshapes: true,
+          outputFacialTransformationMatrixes: true
+        });
+        handLandmarker = await HandLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: HAND_MODEL_URL },
+          runningMode: "VIDEO",
+          numHands: 2,
+          minHandDetectionConfidence: 0.5,
+          minHandPresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        poseLandmarker = await PoseLandmarker.createFromOptions(fileset, {
+          baseOptions: { modelAssetPath: POSE_MODEL_URL },
+          runningMode: "VIDEO",
+          numPoses: 1,
+          minPoseDetectionConfidence: 0.5,
+          minPosePresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        resizeOverlay();
+        resizeAvatar3D();
+        resetPoseUI();
+        resetDerivedState();
+        clearMetricsForNoFace();
+        startBtn.disabled = false;
+        distanceRefBtn.disabled = true;
+        setStatus("Face, hand, and pose models are ready. Click ‘Start camera’.", "ok");
+      } catch (error) {
+        startBtn.disabled = true;
+        stopBtn.disabled = true;
+        calibrateBtn.disabled = true;
+        distanceRefBtn.disabled = true;
+        setStatus(`Could not load the MediaPipe models: ${error.message}`, "warn");
+        console.error(error);
+      }
+    }
+
+    video.addEventListener("loadedmetadata", resizeOverlay);
+    video.addEventListener("resize", resizeOverlay);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        stopFrameScheduling();
+      } else if (mediaStream) {
+        renderLoop();
+      }
+    });
 
     startBtn.addEventListener("click", startCamera);
     stopBtn.addEventListener("click", stopCamera);
     calibrateBtn.addEventListener("click", calibrateNeutralPose);
     distanceRefBtn.addEventListener("click", setReferenceDistance);
-    labelsBtn.addEventListener("click", toggleLabels);
-
-    window.addEventListener("resize", () => {
-      resizeOverlay();
-      resizeAvatar3D();
-      if (latestResult) drawAll(latestResult);
+    meshIdsBtn.addEventListener("click", () => {
+      showFaceIds = !showFaceIds;
+      meshIdsBtn.textContent = `IDs: ${showFaceIds ? "on" : "off"}`;
     });
-    video.addEventListener("loadedmetadata", resizeOverlay);
-    video.addEventListener("resize", resizeOverlay);
+    window.addEventListener("resize", resizeOverlay);
+    window.addEventListener("resize", resizeAvatar3D);
 
-    resetUI();
-    initAvatar3D();
-    initWorker();
-
+    init();
   </script>
 </body>
 </html>
