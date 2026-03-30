@@ -452,13 +452,55 @@
       </section>
 
       <section class="grid">
+
+        <div class="metric">
+          <h2>Head pose</h2>
+          <div class="bar-block">
+            <div class="bar-label"><span>Yaw</span><span id="yawValue">0.0°</span></div>
+            <div class="bar-track"><div id="yawBar" class="bar-fill"></div></div>
+          
+
+        <div class="metric">
+          <h3>Expressions</h3>
+          <div class="mini-row"><div class="label">Blink</div>
+
+        <div class="grid-2">
+          <div class="metric">
+            <h3>Behaviour summary</h3>
+            <div class="kv">
+              <div class="key">Time moving</div><div id="movingTimeValue">0.0 s</div>
+              <div class="key">Time still</div><div id="stillTimeValue">0.0 s</div>
+              <div class="key">Movement bouts</div><div id="movementBoutsValue">0</div>
+              <div class="key">Average bout duration</div><div id="avgBoutValue">0.0 s</div>
+              <div class="key">Maximum head speed</div><div id="maxHeadSpeedValue">0.0 °/s</div>
+              <div class="key">Cumulative movement load</div><div id="movementLoadValue">0.0 °</div>
+              <div class="key">Left/right yaw balance</div><div id="yawBalanceValue">–</div>
+            </div>
+          
         <div class="grid-3">
           <div class="metric">
             <h3>Tracking</h3>
             <div class="metric-value small" id="trackingState">Waiting</div>
             <div class="muted" id="trackingHint">Start the camera to begin tracking.</div>
           </div>
+          
+
+        <div class="grid-2">
           <div class="metric">
+            <h3>Repetition frequency</h3>
+            <div class="kv">
+              <div class="key">Nodding</div><div id="nodFreqValue">0.00 Hz</div>
+              <div class="key">Shaking</div><div id="shakeFreqValue">0.00 Hz</div>
+              <div class="key">Tilting</div><div id="tiltFreqValue">0.00 Hz</div>
+              <div class="key">Headbanging</div><div id="headbangFreqValue">0.00 Hz</div>
+            </div>
+          
+
+        <div class="metric">
+          <h3>Face geometry</h3>
+          <div class="two-col">
+            <div class="kv">
+              <div class="key">Mouth width</div><div class="metric">
             <h3>Current action</h3>
             <div class="metric-value small" id="currentAction">Still</div>
             <div class="muted">Instant classification from pose velocity.</div>
@@ -468,14 +510,7 @@
             <div class="metric-value small" id="fpsValue">0</div>
             <div class="muted">Face-tracking update rate.</div>
           </div>
-        </div>
-
-        <div class="metric">
-          <h2>Head pose</h2>
-          <div class="bar-block">
-            <div class="bar-label"><span>Yaw</span><span id="yawValue">0.0°</span></div>
-            <div class="bar-track"><div id="yawBar" class="bar-fill"></div></div>
-          </div>
+        </div></div>
           <div class="bar-block">
             <div class="bar-label"><span>Pitch</span><span id="pitchValue">0.0°</span></div>
             <div class="bar-track"><div id="pitchBar" class="bar-fill"></div></div>
@@ -498,18 +533,7 @@
               <div class="key">Total movement</div><div id="totalMovementValue">0.0 °</div>
             </div>
           </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="metric">
-            <h3>Repetition frequency</h3>
-            <div class="kv">
-              <div class="key">Nodding</div><div id="nodFreqValue">0.00 Hz</div>
-              <div class="key">Shaking</div><div id="shakeFreqValue">0.00 Hz</div>
-              <div class="key">Tilting</div><div id="tiltFreqValue">0.00 Hz</div>
-              <div class="key">Headbanging</div><div id="headbangFreqValue">0.00 Hz</div>
-            </div>
-          </div>
+        </div></div>
           <div class="metric">
             <h3>Distance and depth proxy</h3>
             <div class="metric-value small" id="distanceValue">–</div>
@@ -522,13 +546,7 @@
               <div class="key">Iris diameter proxy</div><div id="irisDiameterPxValue">–</div>
             </div>
           </div>
-        </div>
-
-        <div class="metric">
-          <h3>Face geometry</h3>
-          <div class="two-col">
-            <div class="kv">
-              <div class="key">Mouth width</div><div id="mouthWidthValue">–</div>
+        </div><div id="mouthWidthValue">–</div>
               <div class="key">Mouth height</div><div id="mouthHeightValue">–</div>
               <div class="key">Mouth aspect ratio</div><div id="mouthAspectValue">–</div>
               <div class="key">Eye aspect ratio (left)</div><div id="earLeftValue">–</div>
@@ -542,11 +560,7 @@
               <div class="key">Screen translation Y</div><div id="faceY">–</div>
             </div>
           </div>
-        </div>
-
-        <div class="metric">
-          <h3>Expressions</h3>
-          <div class="mini-row"><div class="label">Blink</div><div class="mini-track"><div id="exprBlinkBar" class="mini-fill"></div></div><div id="exprBlinkValue">0%</div></div>
+        </div><div class="mini-track"><div id="exprBlinkBar" class="mini-fill"></div></div><div id="exprBlinkValue">0%</div></div>
           <div class="mini-row"><div class="label">Eye openness</div><div class="mini-track"><div id="exprOpenBar" class="mini-fill"></div></div><div id="exprOpenValue">0%</div></div>
           <div class="mini-row"><div class="label">Brow raise</div><div class="mini-track"><div id="exprBrowRaiseBar" class="mini-fill"></div></div><div id="exprBrowRaiseValue">0%</div></div>
           <div class="mini-row"><div class="label">Brow furrow</div><div class="mini-track"><div id="exprBrowFurrowBar" class="mini-fill"></div></div><div id="exprBrowFurrowValue">0%</div></div>
@@ -557,21 +571,7 @@
           <div class="mini-row"><div class="label">Jaw open</div><div class="mini-track"><div id="exprJawOpenBar" class="mini-fill"></div></div><div id="exprJawOpenValue">0%</div></div>
           <div class="mini-row"><div class="label">Nose flare est.</div><div class="mini-track"><div id="exprNoseFlareBar" class="mini-fill"></div></div><div id="exprNoseFlareValue">0%</div></div>
           <div class="mini-row"><div class="label">Squint</div><div class="mini-track"><div id="exprSquintBar" class="mini-fill"></div></div><div id="exprSquintValue">0%</div></div>
-        </div>
-
-        <div class="grid-2">
-          <div class="metric">
-            <h3>Behaviour summary</h3>
-            <div class="kv">
-              <div class="key">Time moving</div><div id="movingTimeValue">0.0 s</div>
-              <div class="key">Time still</div><div id="stillTimeValue">0.0 s</div>
-              <div class="key">Movement bouts</div><div id="movementBoutsValue">0</div>
-              <div class="key">Average bout duration</div><div id="avgBoutValue">0.0 s</div>
-              <div class="key">Maximum head speed</div><div id="maxHeadSpeedValue">0.0 °/s</div>
-              <div class="key">Cumulative movement load</div><div id="movementLoadValue">0.0 °</div>
-              <div class="key">Left/right yaw balance</div><div id="yawBalanceValue">–</div>
-            </div>
-          </div>
+        </div></div>
           <div class="metric">
             <h3>Event classification</h3>
             <div class="kv">
@@ -1543,13 +1543,22 @@
     }
 
     function updateFps(now = performance.now()) {
-      frameCounter += 1;
-      const elapsed = now - lastFpsTime;
-      if (elapsed >= 500) {
-        fpsValue.textContent = Math.round(frameCounter * 1000 / elapsed).toString();
-        frameCounter = 0;
-        lastFpsTime = now;
+      state.fpsHistory.push(now);
+
+      while (state.fpsHistory.length > 0 && now - state.fpsHistory[0] > 1500) {
+        state.fpsHistory.shift();
       }
+
+      if (state.fpsHistory.length >= 2) {
+        const elapsed = state.fpsHistory[state.fpsHistory.length - 1] - state.fpsHistory[0];
+        if (elapsed > 0) {
+          const fps = ((state.fpsHistory.length - 1) * 1000) / elapsed;
+          fpsValue.textContent = String(Math.round(fps));
+          return;
+        }
+      }
+
+      fpsValue.textContent = "0";
     }
 
     function updatePoseUI(pose) {
@@ -2196,6 +2205,10 @@
         await video.play();
         resizeOverlay();
         resetCachedTaskResults();
+        state.fpsHistory = [];
+        lastFpsTime = performance.now();
+        frameCounter = 0;
+        fpsValue.textContent = "0";
         state.lastInferenceTimestamp = -Infinity;
         renderLoop();
         addLog(`Tracking loop started (${mobile ? "mobile" : "desktop"} profile, target ≈ ${Math.round(1000 / desiredInferenceIntervalMs)} face fps; hands/pose throttled).`);
@@ -2274,6 +2287,7 @@
       trackingHint.textContent = "Camera stream is off.";
       lastFpsTime = performance.now();
       frameCounter = 0;
+      state.fpsHistory = [];
       fpsValue.textContent = "0";
       startBtn.disabled = false;
       stopBtn.disabled = true;
