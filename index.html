@@ -98,6 +98,34 @@
       letter-spacing: 0.01em;
     }
 
+    .hidden-feed-stage {
+      position: absolute;
+      left: -10000px;
+      top: -10000px;
+      width: min(42vw, 480px);
+      aspect-ratio: 1 / 1;
+      visibility: hidden;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .head-pose-details {
+      display: none;
+    }
+
+    .axis-ticks {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .axis-ticks span {
+      text-align: center;
+    }
+
     .controls {
       padding: 12px;
       display: flex;
@@ -166,7 +194,7 @@
     }
 
     video {
-      object-fit: cover;
+      object-fit: contain;
       background: #05070b;
       transform: scaleX(-1);
     }
@@ -174,6 +202,30 @@
     #overlay {
       pointer-events: none;
       transform: scaleX(-1);
+    }
+
+    .head-stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #05070b;
+      border: 1px solid var(--border);
+    }
+
+    #headFeedCanvas,
+    #headOverlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      transform: scaleX(-1);
+    }
+
+    #headOverlay {
+      pointer-events: none;
     }
 
     .avatar-stage {
@@ -414,7 +466,7 @@
       .header, .panel, .metric { padding: 14px; }
       .grid-2, .grid-3, .two-col { grid-template-columns: 1fr; }
       .mini-row { grid-template-columns: 90px 1fr 42px; }
-      .visual-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .visual-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
   </style>
 </head>
@@ -437,10 +489,10 @@
         <p id="status" class="status">Loading MediaPipe model…</p>
         <div class="visual-grid">
           <div class="visual-box">
-            <div class="visual-label">Webcam + landmarks</div>
-            <div class="stage">
-              <video id="video" playsinline autoplay muted></video>
-              <canvas id="overlay"></canvas>
+            <div class="visual-label">Face close-up + landmarks</div>
+            <div class="head-stage">
+              <canvas id="headFeedCanvas"></canvas>
+              <canvas id="headOverlay"></canvas>
             </div>
           </div>
           <div class="visual-box">
@@ -448,21 +500,71 @@
             <div id="avatar3d" class="avatar-stage"></div>
           </div>
         </div>
-        <p class="footnote">Distance remains approximate because this is monocular webcam video. Frequency and event measures are rolling estimates and become more stable after a few seconds of movement.</p>
+
+        <div class="hidden-feed-stage">
+          <div class="stage">
+            <video id="video" playsinline autoplay muted></video>
+            <canvas id="overlay"></canvas>
+          </div>
+        </div>
+
+        <p class="footnote">The face close-up is an automatically cropped head-and-shoulders view derived from the full camera frame, and it keeps the detected face centred as far as the full frame allows. Distance remains approximate because this is monocular webcam video.</p>
       </section>
+
 
       <section class="grid">
 
         <div class="metric">
           <h2>Head pose</h2>
           <div class="bar-block">
-            <div class="bar-label"><span>Yaw</span><span id="yawValue">0.0°</span></div>
+            <div class="bar-label"><span>Yaw <span class="muted" style="font-weight:400;font-size:12px;">(nodding "no")</span></span><span id="yawValue">0.0°</span></div>
             <div class="bar-track"><div id="yawBar" class="bar-fill"></div></div>
-          
+          </div>
+          <div class="bar-block">
+            <div class="bar-label"><span>Pitch <span class="muted" style="font-weight:400;font-size:12px;">(nodding "yes")</span></span><span id="pitchValue">0.0°</span></div>
+            <div class="bar-track"><div id="pitchBar" class="bar-fill"></div></div>
+          </div>
+          <div class="bar-block">
+            <div class="bar-label"><span>Roll <span class="muted" style="font-weight:400;font-size:12px;">(tilting sideways)</span></span><span id="rollValue">0.0°</span></div>
+            <div class="bar-track"><div id="rollBar" class="bar-fill"></div></div>
+            <div class="axis-ticks" aria-hidden="true">
+              <span>-180</span><span>-90</span><span>0</span><span>90</span><span>180</span>
+            </div>
+          </div>
+          <div class="bar-block">
+            <div class="bar-label"><span>Distance</span><span id="headDistanceValue">–</span></div>
+            <div class="bar-track"><div id="headDistanceBar" class="bar-fill"></div></div>
+            <div class="axis-ticks" aria-hidden="true">
+              <span>-20</span><span>-10</span><span>0</span><span>+10</span><span>+20</span>
+            </div>
+          </div>
+        </div>
 
         <div class="metric">
-          <h3>Expressions</h3>
-          <div class="mini-row"><div class="label">Blink</div>
+          <h3>Eyes</h3>
+          <div class="mini-row"><div class="label">Blink</div><div class="mini-track"><div id="exprBlinkBar" class="mini-fill"></div></div><div id="exprBlinkValue">0%</div></div>
+          <div class="mini-row"><div class="label">Eye openness</div><div class="mini-track"><div id="exprOpenBar" class="mini-fill"></div></div><div id="exprOpenValue">0%</div></div>
+          <div class="mini-row"><div class="label">Squint</div><div class="mini-track"><div id="exprSquintBar" class="mini-fill"></div></div><div id="exprSquintValue">0%</div></div>
+          <div class="mini-row"><div class="label">Brow raise</div><div class="mini-track"><div id="exprBrowRaiseBar" class="mini-fill"></div></div><div id="exprBrowRaiseValue">0%</div></div>
+          <div class="mini-row"><div class="label">Brow furrow</div><div class="mini-track"><div id="exprBrowFurrowBar" class="mini-fill"></div></div><div id="exprBrowFurrowValue">0%</div></div>
+          <div class="muted" style="margin-top: 8px; font-size: 12px;">Heuristic eye and brow estimates derived from face blendshapes.</div>
+        </div>
+
+        <div class="metric">
+          <h3>Basic expressions</h3>
+          <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+            <span class="muted" style="font-size: 13px;">Dominant:</span>
+            <span id="dominantExprValue" class="pill">–</span>
+          </div>
+          <div class="mini-row"><div class="label">Happiness</div><div class="mini-track"><div id="basicHappinessBar" class="mini-fill"></div></div><div id="basicHappinessValue">0%</div></div>
+          <div class="mini-row"><div class="label">Sadness</div><div class="mini-track"><div id="basicSadnessBar" class="mini-fill"></div></div><div id="basicSadnessValue">0%</div></div>
+          <div class="mini-row"><div class="label">Fear</div><div class="mini-track"><div id="basicFearBar" class="mini-fill"></div></div><div id="basicFearValue">0%</div></div>
+          <div class="mini-row"><div class="label">Disgust</div><div class="mini-track"><div id="basicDisgustBar" class="mini-fill"></div></div><div id="basicDisgustValue">0%</div></div>
+          <div class="mini-row"><div class="label">Anger</div><div class="mini-track"><div id="basicAngerBar" class="mini-fill"></div></div><div id="basicAngerValue">0%</div></div>
+          <div class="mini-row"><div class="label">Surprise</div><div class="mini-track"><div id="basicSurpriseBar" class="mini-fill"></div></div><div id="basicSurpriseValue">0%</div></div>
+          <div class="mini-row"><div class="label">Contempt</div><div class="mini-track"><div id="basicContemptBar" class="mini-fill"></div></div><div id="basicContemptValue">0%</div></div>
+          <div class="muted" style="margin-top: 8px; font-size: 12px;">Heuristic estimates derived from blendshape weights. Not a calibrated classifier.</div>
+        </div>
 
         <div class="grid-2">
           <div class="metric">
@@ -476,14 +578,63 @@
               <div class="key">Cumulative movement load</div><div id="movementLoadValue">0.0 °</div>
               <div class="key">Left/right yaw balance</div><div id="yawBalanceValue">–</div>
             </div>
-          
+          </div>
+          <div class="metric">
+            <h3>Event classification</h3>
+            <div class="kv">
+              <div class="key">Nodding YES</div><div id="eventNodCount">0</div>
+              <div class="key">Nodding NO</div><div id="eventShakeCount">0</div>
+              <div class="key">Head tilt left</div><div id="eventTiltLeftCount">0</div>
+              <div class="key">Head tilt right</div><div id="eventTiltRightCount">0</div>
+              <div class="key">Headbanging counts</div><div id="eventHeadbangCount">0</div>
+              <div class="key">Blink count</div><div id="blinkCountValue">0</div>
+              <div class="key">Elapsed time</div><div id="elapsedTimeValue">0:00</div>
+              <div class="key">Neutral pose</div><div id="neutralState">Not set</div>
+            </div>
+          </div>
+        </div>
+
         <div class="grid-3">
           <div class="metric">
             <h3>Tracking</h3>
             <div class="metric-value small" id="trackingState">Waiting</div>
             <div class="muted" id="trackingHint">Start the camera to begin tracking.</div>
           </div>
-          
+          <div class="metric">
+            <h3>Current action</h3>
+            <div class="metric-value small" id="currentAction">Still</div>
+            <div class="muted">Instant classification from pose velocity.</div>
+          </div>
+          <div class="metric">
+            <h3>Frame rate</h3>
+            <div class="metric-value small" id="fpsValue">0</div>
+            <div class="muted">Face-tracking update rate.</div>
+          </div>
+        </div>
+
+        <div class="metric">
+          <h3>Detected actions</h3>
+          <div class="kv">
+            <div class="key">Talking</div><div id="talkingStateValue">–</div>
+            <div class="key">Yawning</div><div id="yawningStateValue">–</div>
+          </div>
+          <div class="muted" style="margin-top: 8px; font-size: 12px;">Talking: jaw oscillation over 1.5 s. Yawning: sustained wide jaw open &gt; 1.8 s.</div>
+        </div>
+
+        <div class="metric">
+          <h3>Attention / gaze estimate</h3>
+          <div class="two-col">
+            <div class="kv">
+              <div class="key">Looking at display/camera</div><div id="lookingAtCameraValue">–</div>
+              <div class="key">Looking away / distracted</div><div id="lookingAwayValue">–</div>
+            </div>
+            <div class="kv">
+              <div class="key">Horizontal gaze offset</div><div id="gazeHorizontalValue">–</div>
+              <div class="key">Vertical gaze offset</div><div id="gazeVerticalValue">–</div>
+            </div>
+          </div>
+          <div class="muted" id="attentionHint" style="margin-top: 10px;">Heuristic estimate from head orientation and iris position.</div>
+        </div>
 
         <div class="grid-2">
           <div class="metric">
@@ -494,46 +645,7 @@
               <div class="key">Tilting</div><div id="tiltFreqValue">0.00 Hz</div>
               <div class="key">Headbanging</div><div id="headbangFreqValue">0.00 Hz</div>
             </div>
-          
-
-        <div class="metric">
-          <h3>Face geometry</h3>
-          <div class="two-col">
-            <div class="kv">
-              <div class="key">Mouth width</div><div class="metric">
-            <h3>Current action</h3>
-            <div class="metric-value small" id="currentAction">Still</div>
-            <div class="muted">Instant classification from pose velocity.</div>
           </div>
-          <div class="metric">
-            <h3>Frame rate</h3>
-            <div class="metric-value small" id="fpsValue">0</div>
-            <div class="muted">Face-tracking update rate.</div>
-          </div>
-        </div></div>
-          <div class="bar-block">
-            <div class="bar-label"><span>Pitch</span><span id="pitchValue">0.0°</span></div>
-            <div class="bar-track"><div id="pitchBar" class="bar-fill"></div></div>
-          </div>
-          <div class="bar-block">
-            <div class="bar-label"><span>Roll</span><span id="rollValue">0.0°</span></div>
-            <div class="bar-track"><div id="rollBar" class="bar-fill"></div></div>
-          </div>
-          <div class="two-col">
-            <div class="kv">
-              <div class="key">Angular speed</div><div id="angularSpeedValue">0.0 °/s</div>
-              <div class="key">Angular acceleration</div><div id="angularAccelValue">0.0 °/s²</div>
-              <div class="key">Movement amplitude</div><div id="movementAmplitudeValue">0.0 °</div>
-              <div class="key">Peak excursion</div><div id="peakExcursionValue">0.0 °</div>
-            </div>
-            <div class="kv">
-              <div class="key">Range of motion (yaw)</div><div id="romYawValue">0.0 °</div>
-              <div class="key">Range of motion (pitch)</div><div id="romPitchValue">0.0 °</div>
-              <div class="key">Range of motion (roll)</div><div id="romRollValue">0.0 °</div>
-              <div class="key">Total movement</div><div id="totalMovementValue">0.0 °</div>
-            </div>
-          </div>
-        </div></div>
           <div class="metric">
             <h3>Distance and depth proxy</h3>
             <div class="metric-value small" id="distanceValue">–</div>
@@ -546,13 +658,23 @@
               <div class="key">Iris diameter proxy</div><div id="irisDiameterPxValue">–</div>
             </div>
           </div>
-        </div><div id="mouthWidthValue">–</div>
+        </div>
+
+        <div class="metric">
+          <h3>Face geometry</h3>
+          <div class="two-col">
+            <div class="kv">
+              <div class="key">Face width</div><div id="geomFaceWidthEstimate">–</div>
+              <div class="key">Face height</div><div id="geomFaceHeightEstimate">–</div>
+              <div class="key">Inter-eye distance</div><div id="geomInterEyeEstimate">–</div>
+              <div class="key">Iris diameter</div><div id="geomIrisEstimate">–</div>
+              <div class="key">Mouth width</div><div id="mouthWidthValue">–</div>
               <div class="key">Mouth height</div><div id="mouthHeightValue">–</div>
+            </div>
+            <div class="kv">
               <div class="key">Mouth aspect ratio</div><div id="mouthAspectValue">–</div>
               <div class="key">Eye aspect ratio (left)</div><div id="earLeftValue">–</div>
               <div class="key">Eye aspect ratio (right)</div><div id="earRightValue">–</div>
-            </div>
-            <div class="kv">
               <div class="key">Eyebrow height (left)</div><div id="browLeftValue">–</div>
               <div class="key">Eyebrow height (right)</div><div id="browRightValue">–</div>
               <div class="key">Face width/height ratio</div><div id="faceRatioValue">–</div>
@@ -560,31 +682,9 @@
               <div class="key">Screen translation Y</div><div id="faceY">–</div>
             </div>
           </div>
-        </div><div class="mini-track"><div id="exprBlinkBar" class="mini-fill"></div></div><div id="exprBlinkValue">0%</div></div>
-          <div class="mini-row"><div class="label">Eye openness</div><div class="mini-track"><div id="exprOpenBar" class="mini-fill"></div></div><div id="exprOpenValue">0%</div></div>
-          <div class="mini-row"><div class="label">Brow raise</div><div class="mini-track"><div id="exprBrowRaiseBar" class="mini-fill"></div></div><div id="exprBrowRaiseValue">0%</div></div>
-          <div class="mini-row"><div class="label">Brow furrow</div><div class="mini-track"><div id="exprBrowFurrowBar" class="mini-fill"></div></div><div id="exprBrowFurrowValue">0%</div></div>
-          <div class="mini-row"><div class="label">Smile</div><div class="mini-track"><div id="exprSmileBar" class="mini-fill"></div></div><div id="exprSmileValue">0%</div></div>
-          <div class="mini-row"><div class="label">Lip press</div><div class="mini-track"><div id="exprLipPressBar" class="mini-fill"></div></div><div id="exprLipPressValue">0%</div></div>
-          <div class="mini-row"><div class="label">Lip stretch</div><div class="mini-track"><div id="exprLipStretchBar" class="mini-fill"></div></div><div id="exprLipStretchValue">0%</div></div>
-          <div class="mini-row"><div class="label">Cheek puff</div><div class="mini-track"><div id="exprCheekPuffBar" class="mini-fill"></div></div><div id="exprCheekPuffValue">0%</div></div>
-          <div class="mini-row"><div class="label">Jaw open</div><div class="mini-track"><div id="exprJawOpenBar" class="mini-fill"></div></div><div id="exprJawOpenValue">0%</div></div>
-          <div class="mini-row"><div class="label">Nose flare est.</div><div class="mini-track"><div id="exprNoseFlareBar" class="mini-fill"></div></div><div id="exprNoseFlareValue">0%</div></div>
-          <div class="mini-row"><div class="label">Squint</div><div class="mini-track"><div id="exprSquintBar" class="mini-fill"></div></div><div id="exprSquintValue">0%</div></div>
-        </div></div>
-          <div class="metric">
-            <h3>Event classification</h3>
-            <div class="kv">
-              <div class="key">Nodding bouts</div><div id="eventNodCount">0</div>
-              <div class="key">Shaking bouts</div><div id="eventShakeCount">0</div>
-              <div class="key">Tilting bouts</div><div id="eventTiltCount">0</div>
-              <div class="key">Headbanging bouts</div><div id="eventHeadbangCount">0</div>
-              <div class="key">Blink count</div><div id="blinkCountValue">0</div>
-              <div class="key">Elapsed time</div><div id="elapsedTimeValue">0:00</div>
-              <div class="key">Neutral pose</div><div id="neutralState">Not set</div>
-            </div>
-          </div>
+          <div class="muted" style="margin-top: 10px; font-size: 12px;">Measurement estimates are shown as px | visual degrees | cm and use the current distance calibration plus an assumed 60 deg webcam horizontal field of view.</div>
         </div>
+
       </section>
     </div>
 
@@ -610,7 +710,10 @@
     const POSE_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
     const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm";
     const RAD2DEG = 180 / Math.PI;
-    const MAX_BAR_ANGLE = 40;
+    const DEG2RAD = Math.PI / 180;
+    const MAX_BAR_ANGLE = 180;
+    const MAX_DISTANCE_DELTA_CM = 20;
+    const DEFAULT_CAMERA_HORIZONTAL_FOV_DEG = 60;
     const HISTORY_WINDOW_MS = 10000;
     const MOTION_WINDOW_MS = 8000;
     const MOVING_THRESHOLD = 18;
@@ -618,6 +721,12 @@
     const HAND_UPDATE_INTERVAL_MS = 140;
     const POSE_UPDATE_INTERVAL_MS = 100;
     const HAND_TEXT_UPDATE_INTERVAL_MS = 180;
+    const HEAD_CROP_SMOOTHING = 0.34;
+    const JAW_HISTORY_MS = 2000;
+    const TALKING_RANGE_THRESHOLD = 0.18;
+    const TALKING_MIN_MEAN = 0.04;
+    const YAWN_OPEN_THRESHOLD = 0.52;
+    const YAWN_SUSTAINED_MS = 1800;
     const MAX_RENDER_DPR = window.matchMedia("(max-width: 900px)").matches ? 1.25 : 2;
 
     const BODY_CONNECTIONS = [
@@ -657,14 +766,6 @@
 
     const AVATAR_JOINTS = [0, 7, 8, 11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 31, 32];
 
-    const FACE_LABEL_INDICES = Object.freeze([
-      1, 4, 5, 6, 8, 9, 10, 13, 14, 17, 33, 37, 40, 46, 52, 55, 61, 66, 70, 78,
-      82, 84, 87, 91, 95, 105, 107, 109, 127, 133, 145, 152, 159, 168, 172, 178,
-      185, 191, 195, 197, 199, 205, 206, 213, 234, 263, 267, 270, 276, 282, 285,
-      291, 295, 300, 308, 312, 314, 317, 321, 324, 334, 336, 338, 356, 362, 374,
-      386, 397, 400, 409, 417, 454, 468, 473
-    ]);
-
     const LM = {
       noseTip: 1,
       mouthLeft: 61,
@@ -688,6 +789,10 @@
     const video = document.getElementById("video");
     const overlay = document.getElementById("overlay");
     const ctx = overlay.getContext("2d");
+    const headFeedCanvas = document.getElementById("headFeedCanvas");
+    const headFeedCtx = headFeedCanvas.getContext("2d");
+    const headOverlay = document.getElementById("headOverlay");
+    const headOverlayCtx = headOverlay.getContext("2d");
     const avatar3dEl = document.getElementById("avatar3d");
 
     const startBtn = document.getElementById("startBtn");
@@ -701,23 +806,22 @@
     const yawValue = document.getElementById("yawValue");
     const pitchValue = document.getElementById("pitchValue");
     const rollValue = document.getElementById("rollValue");
+    const headDistanceValue = document.getElementById("headDistanceValue");
     const yawBar = document.getElementById("yawBar");
     const pitchBar = document.getElementById("pitchBar");
     const rollBar = document.getElementById("rollBar");
+    const headDistanceBar = document.getElementById("headDistanceBar");
 
     const trackingState = document.getElementById("trackingState");
     const trackingHint = document.getElementById("trackingHint");
     const currentActionEl = document.getElementById("currentAction");
     const fpsValue = document.getElementById("fpsValue");
+    const lookingAtCameraValue = document.getElementById("lookingAtCameraValue");
+    const lookingAwayValue = document.getElementById("lookingAwayValue");
+    const gazeHorizontalValue = document.getElementById("gazeHorizontalValue");
+    const gazeVerticalValue = document.getElementById("gazeVerticalValue");
+    const attentionHint = document.getElementById("attentionHint");
 
-    const angularSpeedValue = document.getElementById("angularSpeedValue");
-    const angularAccelValue = document.getElementById("angularAccelValue");
-    const movementAmplitudeValue = document.getElementById("movementAmplitudeValue");
-    const peakExcursionValue = document.getElementById("peakExcursionValue");
-    const romYawValue = document.getElementById("romYawValue");
-    const romPitchValue = document.getElementById("romPitchValue");
-    const romRollValue = document.getElementById("romRollValue");
-    const totalMovementValue = document.getElementById("totalMovementValue");
 
     const nodFreqValue = document.getElementById("nodFreqValue");
     const shakeFreqValue = document.getElementById("shakeFreqValue");
@@ -735,6 +839,10 @@
     const mouthWidthValue = document.getElementById("mouthWidthValue");
     const mouthHeightValue = document.getElementById("mouthHeightValue");
     const mouthAspectValue = document.getElementById("mouthAspectValue");
+    const geomFaceWidthEstimate = document.getElementById("geomFaceWidthEstimate");
+    const geomFaceHeightEstimate = document.getElementById("geomFaceHeightEstimate");
+    const geomInterEyeEstimate = document.getElementById("geomInterEyeEstimate");
+    const geomIrisEstimate = document.getElementById("geomIrisEstimate");
     const earLeftValue = document.getElementById("earLeftValue");
     const earRightValue = document.getElementById("earRightValue");
     const browLeftValue = document.getElementById("browLeftValue");
@@ -753,25 +861,34 @@
 
     const eventNodCount = document.getElementById("eventNodCount");
     const eventShakeCount = document.getElementById("eventShakeCount");
-    const eventTiltCount = document.getElementById("eventTiltCount");
+    const eventTiltLeftCount = document.getElementById("eventTiltLeftCount");
+    const eventTiltRightCount = document.getElementById("eventTiltRightCount");
     const eventHeadbangCount = document.getElementById("eventHeadbangCount");
     const blinkCountValue = document.getElementById("blinkCountValue");
     const elapsedTimeValue = document.getElementById("elapsedTimeValue");
     const neutralState = document.getElementById("neutralState");
 
-    const expressionEls = {
+    const eyeMetricEls = {
       blink: { value: document.getElementById("exprBlinkValue"), bar: document.getElementById("exprBlinkBar") },
       eyeOpen: { value: document.getElementById("exprOpenValue"), bar: document.getElementById("exprOpenBar") },
       browRaise: { value: document.getElementById("exprBrowRaiseValue"), bar: document.getElementById("exprBrowRaiseBar") },
       browFurrow: { value: document.getElementById("exprBrowFurrowValue"), bar: document.getElementById("exprBrowFurrowBar") },
-      smile: { value: document.getElementById("exprSmileValue"), bar: document.getElementById("exprSmileBar") },
-      lipPress: { value: document.getElementById("exprLipPressValue"), bar: document.getElementById("exprLipPressBar") },
-      lipStretch: { value: document.getElementById("exprLipStretchValue"), bar: document.getElementById("exprLipStretchBar") },
-      cheekPuff: { value: document.getElementById("exprCheekPuffValue"), bar: document.getElementById("exprCheekPuffBar") },
-      jawOpen: { value: document.getElementById("exprJawOpenValue"), bar: document.getElementById("exprJawOpenBar") },
-      noseFlare: { value: document.getElementById("exprNoseFlareValue"), bar: document.getElementById("exprNoseFlareBar") },
       squint: { value: document.getElementById("exprSquintValue"), bar: document.getElementById("exprSquintBar") }
     };
+
+    const basicExprEls = {
+      happiness: { value: document.getElementById("basicHappinessValue"), bar: document.getElementById("basicHappinessBar") },
+      sadness:   { value: document.getElementById("basicSadnessValue"),   bar: document.getElementById("basicSadnessBar")   },
+      fear:      { value: document.getElementById("basicFearValue"),      bar: document.getElementById("basicFearBar")      },
+      disgust:   { value: document.getElementById("basicDisgustValue"),   bar: document.getElementById("basicDisgustBar")   },
+      anger:     { value: document.getElementById("basicAngerValue"),     bar: document.getElementById("basicAngerBar")     },
+      surprise:  { value: document.getElementById("basicSurpriseValue"),  bar: document.getElementById("basicSurpriseBar")  },
+      contempt:  { value: document.getElementById("basicContemptValue"),  bar: document.getElementById("basicContemptBar")  }
+    };
+    const dominantExprValue = document.getElementById("dominantExprValue");
+
+    const talkingStateValue = document.getElementById("talkingStateValue");
+    const yawningStateValue = document.getElementById("yawningStateValue");
 
     let faceLandmarker = null;
     let handLandmarker = null;
@@ -792,8 +909,9 @@
     let animationFrameId = null;
     let lastVideoTime = -1;
 
-    let referenceDistanceCm = null;
+    let referenceDistanceCm = 50;
     let referenceFaceWidthPx = null;
+    let referenceIsDefault = true;
     let showFaceIds = false;
     let neutralRotation = null;
 
@@ -803,6 +921,7 @@
 
     const state = {
       videoDrawRect: null,
+      headDrawRect: null,
       videoFrameCallbackId: null,
       prevPose: null,
       prevSpeed: 0,
@@ -818,12 +937,16 @@
       boutStartTime: null,
       boutDurationsMs: [],
       boutAxisMotion: { yaw: 0, pitch: 0, roll: 0 },
+      boutRollNet: 0,
       boutPeakSpeed: 0,
       currentAction: "Still",
-      eventCounts: { nodding: 0, shaking: 0, tilting: 0, headbanging: 0 },
+      eventCounts: { nodding: 0, shaking: 0, tiltLeft: 0, tiltRight: 0, headbanging: 0 },
       blinkCount: 0,
       blinkClosed: false,
       sessionStartTime: null,
+      fpsHistory: [],
+      lastRuntimeError: "",
+      lastRuntimeErrorTime: -Infinity,
       lastHandProcessTime: -Infinity,
       lastPoseProcessTime: -Infinity,
       lastHandLabelTime: -Infinity,
@@ -831,7 +954,12 @@
       cachedHandResult: null,
       cachedPoseResult: null,
       lastInferenceTimestamp: -Infinity,
-      loggedFirstFrame: false
+      loggedFirstFrame: false,
+      smoothedHeadCrop: null,
+      jawHistory: [],
+      talkingState: false,
+      yawningState: false,
+      yawnThresholdStartTime: null
     };
 
     function addLog(message, level = "info") {
@@ -844,6 +972,15 @@
       startupLogEl.scrollTop = startupLogEl.scrollHeight;
     }
 
+    function logRuntimeError(message) {
+      const now = performance.now();
+      if (message !== state.lastRuntimeError || now - state.lastRuntimeErrorTime > 2000) {
+        addLog(message, "error");
+        state.lastRuntimeError = message;
+        state.lastRuntimeErrorTime = now;
+      }
+    }
+
     function setStatus(message, kind = "") {
       statusEl.textContent = message;
       statusEl.className = `status ${kind}`.trim();
@@ -853,8 +990,31 @@
       return Math.min(max, Math.max(min, value));
     }
 
+    function lerp(start, end, amount) {
+      return start + (end - start) * amount;
+    }
+
     function mean(values) {
       return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+    }
+
+    function describeCameraError(error) {
+      switch (error?.name) {
+        case "NotAllowedError":
+          return "Camera access was blocked. Allow camera access in the browser and try again.";
+        case "NotFoundError":
+          return "No camera was found on this device.";
+        case "NotReadableError":
+          return "The camera is already in use by another app or browser tab.";
+        case "OverconstrainedError":
+          return "The requested camera settings were not available on this device.";
+        case "SecurityError":
+          return "Camera access is only available in a secure browser context.";
+        case "AbortError":
+          return "Camera start was interrupted before the stream became ready.";
+        default:
+          return error?.message || "Unknown camera error.";
+      }
     }
 
     function dist(a, b) {
@@ -874,6 +1034,20 @@
       return { x: x / indices.length, y: y / indices.length };
     }
 
+    function averageNormalizedPoint(landmarks, indices) {
+      let x = 0;
+      let y = 0;
+      let count = 0;
+      for (const idx of indices) {
+        const point = landmarks[idx];
+        if (!point) continue;
+        x += point.x;
+        y += point.y;
+        count += 1;
+      }
+      return count ? { x: x / count, y: y / count } : null;
+    }
+
     function getPoint(landmarks, idx, width = 1, height = 1) {
       const rect = getVideoDrawRect();
       return {
@@ -882,9 +1056,9 @@
       };
     }
 
-    function setBar(barEl, angleDeg) {
-      const limited = clamp(angleDeg, -MAX_BAR_ANGLE, MAX_BAR_ANGLE);
-      const percent = Math.abs(limited) / MAX_BAR_ANGLE * 50;
+    function setBar(barEl, value, maxAbsValue = MAX_BAR_ANGLE) {
+      const limited = clamp(value, -maxAbsValue, maxAbsValue);
+      const percent = Math.abs(limited) / maxAbsValue * 50;
       barEl.style.left = limited >= 0 ? "50%" : `${50 - percent}%`;
       barEl.style.width = `${percent}%`;
     }
@@ -904,19 +1078,69 @@
       return `${minutes}:${String(seconds).padStart(2, "0")}`;
     }
 
+    function formatSignedCm(value) {
+      const sign = value > 0 ? "+" : "";
+      return `${sign}${value.toFixed(1)} cm`;
+    }
+
+    function getEstimatedDistanceCm(geometry) {
+      if (!geometry || !referenceFaceWidthPx || geometry.faceWidth <= 0) return null;
+      return referenceDistanceCm * (referenceFaceWidthPx / geometry.faceWidth);
+    }
+
+    function getVisualDegreesFromPx(px, axis = "diag") {
+      const rect = getVideoDrawRect();
+      const width = Math.max(rect.width, 1e-6);
+      const height = Math.max(rect.height, 1e-6);
+      const aspect = width / height;
+      const horizontalFovDeg = DEFAULT_CAMERA_HORIZONTAL_FOV_DEG;
+      const verticalFovDeg = 2 * Math.atan(Math.tan((horizontalFovDeg * DEG2RAD) / 2) / Math.max(aspect, 1e-6)) * RAD2DEG;
+
+      if (axis === "x") return px * horizontalFovDeg / width;
+      if (axis === "y") return px * verticalFovDeg / height;
+      const avgDegPerPx = mean([horizontalFovDeg / width, verticalFovDeg / height]);
+      return px * avgDegPerPx;
+    }
+
+    function getCmFromVisualDegrees(angleDeg, distanceCm) {
+      if (!Number.isFinite(angleDeg) || !Number.isFinite(distanceCm) || distanceCm <= 0) return null;
+      return 2 * distanceCm * Math.tan((angleDeg * DEG2RAD) / 2);
+    }
+
+    function formatMeasurementEstimate(px, axis, distanceCm) {
+      const angleDeg = getVisualDegreesFromPx(px, axis);
+      const sizeCm = getCmFromVisualDegrees(angleDeg, distanceCm);
+      const pxText = `${px.toFixed(px >= 100 ? 0 : 1)} px`;
+      const angleText = Number.isFinite(angleDeg) ? `${angleDeg.toFixed(1)}°` : "–";
+      const cmText = Number.isFinite(sizeCm) ? `${sizeCm.toFixed(1)} cm` : "–";
+      return `${pxText} | ${angleText} | ${cmText}`;
+    }
+
+    function updateHeadDistanceDelta(deltaCm) {
+      if (!Number.isFinite(deltaCm)) {
+        headDistanceValue.textContent = "–";
+        setBar(headDistanceBar, 0, MAX_DISTANCE_DELTA_CM);
+        return;
+      }
+      headDistanceValue.textContent = formatSignedCm(deltaCm);
+      setBar(headDistanceBar, deltaCm, MAX_DISTANCE_DELTA_CM);
+    }
+
     function updateMiniMetric(name, value01) {
       const v = clamp(value01, 0, 1);
-      expressionEls[name].bar.style.width = `${v * 100}%`;
-      expressionEls[name].value.textContent = formatPct01(v);
+      eyeMetricEls[name].bar.style.width = `${v * 100}%`;
+      eyeMetricEls[name].value.textContent = formatPct01(v);
     }
 
     function resetPoseUI() {
       yawValue.textContent = "0.0°";
       pitchValue.textContent = "0.0°";
       rollValue.textContent = "0.0°";
+      headDistanceValue.textContent = "–";
       setBar(yawBar, 0);
       setBar(pitchBar, 0);
       setBar(rollBar, 0);
+      setBar(headDistanceBar, 0, MAX_DISTANCE_DELTA_CM);
     }
 
     function updateVideoDrawRect() {
@@ -924,7 +1148,7 @@
       const canvasHeight = overlay.clientHeight || overlay.parentElement?.clientHeight || 1;
       const videoWidth = video.videoWidth || 1280;
       const videoHeight = video.videoHeight || 720;
-      const scale = Math.max(canvasWidth / videoWidth, canvasHeight / videoHeight);
+      const scale = Math.min(canvasWidth / videoWidth, canvasHeight / videoHeight);
       const drawWidth = videoWidth * scale;
       const drawHeight = videoHeight * scale;
       const x = (canvasWidth - drawWidth) / 2;
@@ -951,8 +1175,60 @@
       ctx.clearRect(0, 0, overlay.width, overlay.height);
     }
 
+    function resizeHeadView() {
+      const stage = headFeedCanvas.parentElement;
+      const rect = stage.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, MAX_RENDER_DPR);
+      const nextWidth = Math.max(1, Math.round(rect.width * dpr));
+      const nextHeight = Math.max(1, Math.round(rect.height * dpr));
+
+      if (headFeedCanvas.width !== nextWidth || headFeedCanvas.height !== nextHeight) {
+        headFeedCanvas.width = nextWidth;
+        headFeedCanvas.height = nextHeight;
+      }
+      if (headOverlay.width !== nextWidth || headOverlay.height !== nextHeight) {
+        headOverlay.width = nextWidth;
+        headOverlay.height = nextHeight;
+      }
+
+      headFeedCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      headOverlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function clearHeadView() {
+      headFeedCtx.clearRect(0, 0, headFeedCanvas.width, headFeedCanvas.height);
+      headOverlayCtx.clearRect(0, 0, headOverlay.width, headOverlay.height);
+    }
+
     function getVideoDrawRect() {
       return state.videoDrawRect ?? updateVideoDrawRect();
+    }
+
+    function clampHeadCropToFrame(crop, videoWidth, videoHeight) {
+      const size = clamp(crop.size, 1, Math.min(videoWidth, videoHeight));
+      return {
+        x: clamp(crop.x, 0, Math.max(0, videoWidth - size)),
+        y: clamp(crop.y, 0, Math.max(0, videoHeight - size)),
+        size
+      };
+    }
+
+    function smoothHeadCrop(crop, videoWidth, videoHeight) {
+      const clampedCrop = clampHeadCropToFrame(crop, videoWidth, videoHeight);
+      const previousCrop = state.smoothedHeadCrop;
+      if (!previousCrop) {
+        state.smoothedHeadCrop = clampedCrop;
+        return clampedCrop;
+      }
+
+      const nextCrop = clampHeadCropToFrame({
+        x: lerp(previousCrop.x, clampedCrop.x, HEAD_CROP_SMOOTHING),
+        y: lerp(previousCrop.y, clampedCrop.y, HEAD_CROP_SMOOTHING),
+        size: lerp(previousCrop.size, clampedCrop.size, Math.min(0.48, HEAD_CROP_SMOOTHING + 0.08))
+      }, videoWidth, videoHeight);
+
+      state.smoothedHeadCrop = nextCrop;
+      return nextCrop;
     }
 
     function matrixToRotation3x3(matrixObject) {
@@ -1024,6 +1300,202 @@
       if (!landmarks) return null;
       const rect = getVideoDrawRect();
       return getFaceBounds(landmarks).width * rect.width;
+    }
+
+    function getHeadCropPixels(faceLandmarks, poseResult) {
+      if (!faceLandmarks || video.readyState < 2) return null;
+
+      const videoWidth = video.videoWidth || 1280;
+      const videoHeight = video.videoHeight || 720;
+      const faceBounds = getFaceBounds(faceLandmarks);
+
+      let left = faceBounds.minX * videoWidth;
+      let right = faceBounds.maxX * videoWidth;
+      let top = faceBounds.minY * videoHeight;
+      let bottom = faceBounds.maxY * videoHeight;
+
+      const faceWidth = Math.max(1, right - left);
+      const faceHeight = Math.max(1, bottom - top);
+
+      left -= faceWidth * 0.42;
+      right += faceWidth * 0.42;
+      top -= faceHeight * 0.54;
+      bottom += faceHeight * 0.72;
+
+      const poseLandmarks = poseResult?.landmarks?.[0];
+      if (poseLandmarks?.[11] && poseLandmarks?.[12]) {
+        const ls = poseLandmarks[11];
+        const rs = poseLandmarks[12];
+        if ((ls.visibility ?? 1) > 0.35 && (rs.visibility ?? 1) > 0.35) {
+          const shoulderLeft = Math.min(ls.x, rs.x) * videoWidth;
+          const shoulderRight = Math.max(ls.x, rs.x) * videoWidth;
+          const shoulderY = Math.max(ls.y, rs.y) * videoHeight;
+          left = Math.min(left, shoulderLeft - faceWidth * 0.22);
+          right = Math.max(right, shoulderRight + faceWidth * 0.22);
+          bottom = Math.max(bottom, shoulderY + faceHeight * 0.26);
+        }
+      }
+
+      let size = Math.max(right - left, bottom - top);
+      size = Math.min(size * 1.02, Math.min(videoWidth, videoHeight));
+
+      const faceCenterX = ((faceBounds.minX + faceBounds.maxX) / 2) * videoWidth;
+      const faceCenterY = ((faceBounds.minY + faceBounds.maxY) / 2) * videoHeight;
+      const desiredFaceX = 0.50;
+      const desiredFaceY = 0.43;
+
+      let x = faceCenterX - size * desiredFaceX;
+      let y = faceCenterY - size * desiredFaceY;
+
+      x = clamp(x, 0, Math.max(0, videoWidth - size));
+      y = clamp(y, 0, Math.max(0, videoHeight - size));
+
+      return smoothHeadCrop({ x, y, size }, videoWidth, videoHeight);
+    }
+
+    function mapHeadPoint(landmark, crop, width, height) {
+      return {
+        x: ((landmark.x * (video.videoWidth || 1280)) - crop.x) / crop.size * width,
+        y: ((landmark.y * (video.videoHeight || 720)) - crop.y) / crop.size * height
+      };
+    }
+
+    function drawHeadConnectorSet(landmarks, connectorSet, crop, options = {}) {
+      if (!Array.isArray(connectorSet) || connectorSet.length === 0) return;
+      const width = headOverlay.clientWidth;
+      const height = headOverlay.clientHeight;
+      headOverlayCtx.save();
+      headOverlayCtx.lineJoin = "round";
+      headOverlayCtx.lineCap = "round";
+      headOverlayCtx.strokeStyle = options.color ?? "rgba(255,255,255,0.85)";
+      headOverlayCtx.lineWidth = options.lineWidth ?? 1.5;
+      headOverlayCtx.beginPath();
+      for (const connection of connectorSet) {
+        const start = connection.start ?? connection[0];
+        const end = connection.end ?? connection[1];
+        if (start == null || end == null || !landmarks[start] || !landmarks[end]) continue;
+        const p1 = mapHeadPoint(landmarks[start], crop, width, height);
+        const p2 = mapHeadPoint(landmarks[end], crop, width, height);
+        headOverlayCtx.moveTo(p1.x, p1.y);
+        headOverlayCtx.lineTo(p2.x, p2.y);
+      }
+      headOverlayCtx.stroke();
+      headOverlayCtx.restore();
+    }
+
+    function drawHeadView(faceLandmarks, poseResult) {
+      resizeHeadView();
+      clearHeadView();
+
+      if (!faceLandmarks || video.readyState < 2) return;
+      const crop = getHeadCropPixels(faceLandmarks, poseResult);
+      if (!crop) return;
+
+      const width = headFeedCanvas.clientWidth || headFeedCanvas.parentElement.clientWidth || 1;
+      const height = headFeedCanvas.clientHeight || headFeedCanvas.parentElement.clientHeight || 1;
+
+      headFeedCtx.drawImage(
+        video,
+        crop.x, crop.y, crop.size, crop.size,
+        0, 0, width, height
+      );
+
+      const drawRect = getVideoDrawRect();
+      const cssScale = drawRect.width / (video.videoWidth || 1280);
+      const dpr = Math.min(window.devicePixelRatio || 1, MAX_RENDER_DPR);
+      const overlaySrcX = (drawRect.x + crop.x * cssScale) * dpr;
+      const overlaySrcY = (drawRect.y + crop.y * cssScale) * dpr;
+      const overlaySrcSize = crop.size * cssScale * dpr;
+
+      headOverlayCtx.drawImage(
+        overlay,
+        overlaySrcX, overlaySrcY, overlaySrcSize, overlaySrcSize,
+        0, 0, width, height
+      );
+
+      drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, crop, { color: "rgba(230, 240, 255, 0.95)", lineWidth: 1.8 });
+      drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, crop, { color: "rgba(70, 110, 255, 0.95)", lineWidth: 1.7 });
+      drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, crop, { color: "rgba(70, 255, 110, 0.95)", lineWidth: 1.7 });
+      drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW, crop, { color: "rgba(70, 110, 255, 0.95)", lineWidth: 1.3 });
+      drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW, crop, { color: "rgba(70, 255, 110, 0.95)", lineWidth: 1.3 });
+      drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, crop, { color: "rgba(255, 210, 160, 0.9)", lineWidth: 1.4 });
+
+      const poseLandmarks = poseResult?.landmarks?.[0];
+      if (poseLandmarks?.[11] && poseLandmarks?.[12]) {
+        const ls = poseLandmarks[11];
+        const rs = poseLandmarks[12];
+        if ((ls.visibility ?? 1) > 0.35 && (rs.visibility ?? 1) > 0.35) {
+          const p1 = mapHeadPoint(ls, crop, width, height);
+          const p2 = mapHeadPoint(rs, crop, width, height);
+          headOverlayCtx.save();
+          headOverlayCtx.strokeStyle = "rgba(110, 225, 255, 0.8)";
+          headOverlayCtx.lineWidth = 2;
+          headOverlayCtx.beginPath();
+          headOverlayCtx.moveTo(p1.x, p1.y);
+          headOverlayCtx.lineTo(p2.x, p2.y);
+          headOverlayCtx.stroke();
+          headOverlayCtx.restore();
+        }
+      }
+    }
+
+    function estimateAttention(landmarks, pose) {
+      const leftIris = averageNormalizedPoint(landmarks, LM.leftIris);
+      const rightIris = averageNormalizedPoint(landmarks, LM.rightIris);
+      if (!leftIris || !rightIris) return null;
+
+      const leftMinX = Math.min(landmarks[LM.leftEyeOuter].x, landmarks[LM.leftEyeInner].x);
+      const leftMaxX = Math.max(landmarks[LM.leftEyeOuter].x, landmarks[LM.leftEyeInner].x);
+      const rightMinX = Math.min(landmarks[LM.rightEyeOuter].x, landmarks[LM.rightEyeInner].x);
+      const rightMaxX = Math.max(landmarks[LM.rightEyeOuter].x, landmarks[LM.rightEyeInner].x);
+      const leftMinY = Math.min(landmarks[LM.leftEyeTop].y, landmarks[LM.leftEyeBottom].y);
+      const leftMaxY = Math.max(landmarks[LM.leftEyeTop].y, landmarks[LM.leftEyeBottom].y);
+      const rightMinY = Math.min(landmarks[LM.rightEyeTop].y, landmarks[LM.rightEyeBottom].y);
+      const rightMaxY = Math.max(landmarks[LM.rightEyeTop].y, landmarks[LM.rightEyeBottom].y);
+
+      const leftHorizRatio = (leftIris.x - leftMinX) / Math.max(1e-6, leftMaxX - leftMinX);
+      const rightHorizRatio = (rightIris.x - rightMinX) / Math.max(1e-6, rightMaxX - rightMinX);
+
+      const leftVertRatio = (leftIris.y - leftMinY) / Math.max(1e-6, leftMaxY - leftMinY);
+      const rightVertRatio = (rightIris.y - rightMinY) / Math.max(1e-6, rightMaxY - rightMinY);
+
+      const gazeHoriz = (((leftHorizRatio - 0.5) + (rightHorizRatio - 0.5)) / 2) * 2;
+      const gazeVert = (((leftVertRatio - 0.5) + (rightVertRatio - 0.5)) / 2) * 2;
+
+      const combinedHoriz = (pose?.yaw ?? 0) / 22 + gazeHoriz * 1.15;
+      const combinedVert = (pose?.pitch ?? 0) / 16 + gazeVert * 0.9;
+
+      const lookingAtCamera = Math.abs(combinedHoriz) < 0.95 && Math.abs(combinedVert) < 0.95;
+      const lookingAway = Math.abs(combinedHoriz) > 1.35 || Math.abs(combinedVert) > 1.2;
+
+      return {
+        lookingAtCamera,
+        lookingAway,
+        gazeHoriz,
+        gazeVert,
+        confidence: clamp(1 - (Math.abs(combinedHoriz) + Math.abs(combinedVert)) / 2.4, 0, 1)
+      };
+    }
+
+    function updateAttentionUI(attention) {
+      if (!attention) {
+        lookingAtCameraValue.textContent = "–";
+        lookingAwayValue.textContent = "–";
+        gazeHorizontalValue.textContent = "–";
+        gazeVerticalValue.textContent = "–";
+        attentionHint.textContent = "Heuristic estimate from head orientation and iris position.";
+        return;
+      }
+
+      lookingAtCameraValue.textContent = attention.lookingAtCamera ? "Likely yes" : "Likely no";
+      lookingAwayValue.textContent = attention.lookingAway ? "Likely yes" : "Likely no";
+
+      const horizLabel = attention.gazeHoriz > 0.22 ? "Right" : (attention.gazeHoriz < -0.22 ? "Left" : "Centred");
+      const vertLabel = attention.gazeVert > 0.18 ? "Down" : (attention.gazeVert < -0.18 ? "Up" : "Centred");
+
+      gazeHorizontalValue.textContent = horizLabel;
+      gazeVerticalValue.textContent = vertLabel;
+      attentionHint.textContent = `Heuristic estimate. Confidence: ${Math.round(attention.confidence * 100)}%.`;
     }
 
     function calculateGeometry(landmarks) {
@@ -1104,6 +1576,7 @@
         faceHeightPx.textContent = "–";
         interEyePxValue.textContent = "–";
         irisDiameterPxValue.textContent = "–";
+        updateHeadDistanceDelta(Number.NaN);
         return;
       }
 
@@ -1112,21 +1585,28 @@
       interEyePxValue.textContent = `${geometry.interEye.toFixed(0)} px`;
       irisDiameterPxValue.textContent = `${geometry.irisDiameter.toFixed(1)} px`;
 
-      if (referenceDistanceCm && referenceFaceWidthPx) {
-        const estimatedCm = referenceDistanceCm * (referenceFaceWidthPx / geometry.faceWidth);
+      const estimatedCm = getEstimatedDistanceCm(geometry);
+      if (Number.isFinite(estimatedCm)) {
+        const deltaCm = referenceDistanceCm - estimatedCm;
         distanceValue.textContent = `${estimatedCm.toFixed(1)} cm`;
         distanceHint.textContent = "Approximate calibrated estimate from apparent face size.";
-        distanceMode.textContent = "Calibrated";
+        distanceMode.textContent = referenceIsDefault ? "Default (50 cm)" : "Calibrated";
+        updateHeadDistanceDelta(deltaCm);
       } else {
         const proxy = geometry.faceWidth / 100;
         distanceValue.textContent = `${proxy.toFixed(2)}×`;
         distanceHint.textContent = "Relative proximity proxy only. Larger value means closer to the camera.";
         distanceMode.textContent = "Proxy only";
+        updateHeadDistanceDelta(Number.NaN);
       }
     }
 
     function updateGeometryUI(geometry) {
       if (!geometry) {
+        geomFaceWidthEstimate.textContent = "–";
+        geomFaceHeightEstimate.textContent = "–";
+        geomInterEyeEstimate.textContent = "–";
+        geomIrisEstimate.textContent = "–";
         mouthWidthValue.textContent = "–";
         mouthHeightValue.textContent = "–";
         mouthAspectValue.textContent = "–";
@@ -1140,8 +1620,13 @@
         return;
       }
 
-      mouthWidthValue.textContent = `${geometry.mouthWidth.toFixed(1)} px`;
-      mouthHeightValue.textContent = `${geometry.mouthHeight.toFixed(1)} px`;
+      const estimatedDistanceCm = getEstimatedDistanceCm(geometry);
+      geomFaceWidthEstimate.textContent = formatMeasurementEstimate(geometry.faceWidth, "x", estimatedDistanceCm);
+      geomFaceHeightEstimate.textContent = formatMeasurementEstimate(geometry.faceHeight, "y", estimatedDistanceCm);
+      geomInterEyeEstimate.textContent = formatMeasurementEstimate(geometry.interEye, "x", estimatedDistanceCm);
+      geomIrisEstimate.textContent = formatMeasurementEstimate(geometry.irisDiameter, "diag", estimatedDistanceCm);
+      mouthWidthValue.textContent = formatMeasurementEstimate(geometry.mouthWidth, "x", estimatedDistanceCm);
+      mouthHeightValue.textContent = formatMeasurementEstimate(geometry.mouthHeight, "y", estimatedDistanceCm);
       mouthAspectValue.textContent = geometry.mouthAspect.toFixed(3);
       earLeftValue.textContent = geometry.leftEAR.toFixed(3);
       earRightValue.textContent = geometry.rightEAR.toFixed(3);
@@ -1167,18 +1652,106 @@
       return { blink, eyeOpen, browRaise, browFurrow, smile, lipPress, lipStretch, cheekPuff, jawOpen, noseFlare, squint };
     }
 
-    function updateExpressionUI(expr) {
+    function deriveBasicExpressions(blend) {
+      const g = (name) => blend[name] ?? 0;
+
+      // Happiness: bilateral smile + cheek raise (Duchenne marker)
+      const happiness = (
+        g("mouthSmileLeft") * 0.40 + g("mouthSmileRight") * 0.40 +
+        g("cheekSquintLeft") * 0.28 + g("cheekSquintRight") * 0.28
+      ) / 1.36;
+
+      // Sadness: inner-brow oblique raise + mouth corners down + lip shrug
+      const sadness = (
+        g("browInnerUp") * 0.38 + g("mouthFrownLeft") * 0.38 +
+        g("mouthFrownRight") * 0.38 + g("mouthShrugLower") * 0.12
+      ) / 1.26;
+
+      // Fear: all brows raised + wide eyes + mouth-corner stretch + jaw drop
+      const fear = (
+        g("browInnerUp") * 0.28 + g("browOuterUpLeft") * 0.20 + g("browOuterUpRight") * 0.20 +
+        g("eyeWideLeft") * 0.38 + g("eyeWideRight") * 0.38 +
+        g("mouthStretchLeft") * 0.18 + g("mouthStretchRight") * 0.18 +
+        g("jawOpen") * 0.12
+      ) / 1.92;
+
+      // Disgust: nose wrinkle (sneer) + brow lower + upper-lip raise + mouth corners down
+      const disgust = (
+        g("noseSneerLeft") * 0.42 + g("noseSneerRight") * 0.42 +
+        g("browDownLeft") * 0.18 + g("browDownRight") * 0.18 +
+        g("mouthUpperUpLeft") * 0.14 + g("mouthUpperUpRight") * 0.14 +
+        g("mouthFrownLeft") * 0.10 + g("mouthFrownRight") * 0.10
+      ) / 1.68;
+
+      // Anger: brow lowering + eye squint + nose + lip press
+      const anger = (
+        g("browDownLeft") * 0.38 + g("browDownRight") * 0.38 +
+        g("eyeSquintLeft") * 0.22 + g("eyeSquintRight") * 0.22 +
+        g("noseSneerLeft") * 0.14 + g("noseSneerRight") * 0.14 +
+        g("mouthPressLeft") * 0.14 + g("mouthPressRight") * 0.14
+      ) / 1.76;
+
+      // Surprise: all brows raised + wide eyes + jaw drop
+      const surprise = (
+        g("browOuterUpLeft") * 0.28 + g("browOuterUpRight") * 0.28 +
+        g("browInnerUp") * 0.22 +
+        g("eyeWideLeft") * 0.28 + g("eyeWideRight") * 0.28 +
+        g("jawOpen") * 0.38
+      ) / 1.72;
+
+      // Contempt: unilateral smile asymmetry suppressed when both sides are high (happiness)
+      const smileL = g("mouthSmileLeft");
+      const smileR = g("mouthSmileRight");
+      const smileAsymmetry = Math.abs(smileL - smileR);
+      const contempt = clamp(smileAsymmetry * 1.6 * clamp(1 - (smileL + smileR) * 0.75, 0, 1), 0, 1);
+
+      return {
+        happiness: clamp(happiness, 0, 1),
+        sadness:   clamp(sadness,   0, 1),
+        fear:      clamp(fear,      0, 1),
+        disgust:   clamp(disgust,   0, 1),
+        anger:     clamp(anger,     0, 1),
+        surprise:  clamp(surprise,  0, 1),
+        contempt
+      };
+    }
+
+    function updateBasicExpressionsUI(basicExpr) {
+      if (!basicExpr) {
+        for (const els of Object.values(basicExprEls)) {
+          els.bar.style.width = "0%";
+          els.value.textContent = "0%";
+        }
+        dominantExprValue.textContent = "–";
+        return;
+      }
+
+      const DOMINANT_THRESHOLD = 0.14;
+      let dominantKey = null;
+      let dominantScore = DOMINANT_THRESHOLD;
+
+      for (const [key, els] of Object.entries(basicExprEls)) {
+        const score = basicExpr[key];
+        const pct = Math.round(score * 100);
+        els.bar.style.width = `${pct}%`;
+        els.value.textContent = `${pct}%`;
+        if (score > dominantScore) {
+          dominantScore = score;
+          dominantKey = key;
+        }
+      }
+
+      dominantExprValue.textContent = dominantKey
+        ? dominantKey.charAt(0).toUpperCase() + dominantKey.slice(1)
+        : "Neutral";
+    }
+
+    function updateEyesUI(expr) {
       updateMiniMetric("blink", expr.blink);
       updateMiniMetric("eyeOpen", expr.eyeOpen);
+      updateMiniMetric("squint", expr.squint);
       updateMiniMetric("browRaise", expr.browRaise);
       updateMiniMetric("browFurrow", expr.browFurrow);
-      updateMiniMetric("smile", expr.smile);
-      updateMiniMetric("lipPress", expr.lipPress);
-      updateMiniMetric("lipStretch", expr.lipStretch);
-      updateMiniMetric("cheekPuff", expr.cheekPuff);
-      updateMiniMetric("jawOpen", expr.jawOpen);
-      updateMiniMetric("noseFlare", expr.noseFlare);
-      updateMiniMetric("squint", expr.squint);
     }
 
     function updateBlinkCount(expr) {
@@ -1190,6 +1763,42 @@
         state.blinkClosed = false;
       }
       blinkCountValue.textContent = String(state.blinkCount);
+    }
+
+    function updateTalkingYawning(blend, now) {
+      const jawOpen = blend.jawOpen ?? 0;
+
+      // Maintain rolling jaw history
+      state.jawHistory.push({ t: now, v: jawOpen });
+      if (state.jawHistory.length > 1 && state.jawHistory[0].t < now - JAW_HISTORY_MS) {
+        state.jawHistory = state.jawHistory.filter(item => now - item.t <= JAW_HISTORY_MS);
+      }
+
+      // Yawning: sustained jaw open above threshold
+      if (jawOpen >= YAWN_OPEN_THRESHOLD) {
+        if (state.yawnThresholdStartTime == null) state.yawnThresholdStartTime = now;
+        state.yawningState = (now - state.yawnThresholdStartTime) >= YAWN_SUSTAINED_MS;
+      } else {
+        state.yawnThresholdStartTime = null;
+        state.yawningState = false;
+      }
+
+      // Talking: rapid jaw oscillation (range over 1.5 s window exceeds threshold)
+      // Suppressed while yawning to avoid false positives as mouth opens/closes.
+      if (!state.yawningState) {
+        const recent = state.jawHistory.filter(item => now - item.t <= 1500);
+        if (recent.length >= 4) {
+          const vals = recent.map(item => item.v);
+          const range = Math.max(...vals) - Math.min(...vals);
+          const meanJaw = vals.reduce((a, b) => a + b, 0) / vals.length;
+          state.talkingState = range >= TALKING_RANGE_THRESHOLD && meanJaw > TALKING_MIN_MEAN;
+        }
+      } else {
+        state.talkingState = false;
+      }
+
+      talkingStateValue.textContent = state.talkingState ? "Yes" : "No";
+      yawningStateValue.textContent = state.yawningState ? "Yes" : "No";
     }
 
     function estimatePose(result) {
@@ -1206,6 +1815,10 @@
     function getWindowHistory(ms = HISTORY_WINDOW_MS) {
       const now = performance.now();
       return state.history.filter(item => now - item.t <= ms);
+    }
+
+    function pruneHistory(now, ms = HISTORY_WINDOW_MS) {
+      state.history = state.history.filter(item => now - item.t <= ms);
     }
 
     function estimateFrequency(samples, property, minProminence, minIntervalMs) {
@@ -1245,26 +1858,23 @@
       const duration = now - state.boutStartTime;
       state.boutDurationsMs.push(duration);
       const { yaw, pitch, roll } = state.boutAxisMotion;
-      let label = "nodding";
+      let label;
       if (pitch >= yaw && pitch >= roll) {
         label = state.boutPeakSpeed >= HEADBANG_SPEED_THRESHOLD ? "headbanging" : "nodding";
       } else if (yaw >= pitch && yaw >= roll) {
         label = "shaking";
       } else {
-        label = "tilting";
+        label = state.boutRollNet >= 0 ? "tiltRight" : "tiltLeft";
       }
       state.eventCounts[label] += 1;
       state.isMoving = false;
       state.boutStartTime = null;
       state.boutAxisMotion = { yaw: 0, pitch: 0, roll: 0 };
+      state.boutRollNet = 0;
       state.boutPeakSpeed = 0;
     }
 
     function updateMotionState(pose, vel, speed, accel, dtMs, now) {
-      const amplitude = Math.hypot(pose.yaw, pose.pitch, pose.roll);
-      movementAmplitudeValue.textContent = `${amplitude.toFixed(1)} °`;
-      angularSpeedValue.textContent = `${speed.toFixed(1)} °/s`;
-      angularAccelValue.textContent = `${accel.toFixed(1)} °/s²`;
       state.maxHeadSpeed = Math.max(state.maxHeadSpeed, speed);
       maxHeadSpeedValue.textContent = `${state.maxHeadSpeed.toFixed(1)} °/s`;
 
@@ -1278,11 +1888,13 @@
           state.isMoving = true;
           state.boutStartTime = now;
           state.boutAxisMotion = { yaw: 0, pitch: 0, roll: 0 };
+          state.boutRollNet = 0;
           state.boutPeakSpeed = speed;
         }
         state.boutAxisMotion.yaw += Math.abs(vel.yaw) * (dtMs / 1000);
         state.boutAxisMotion.pitch += Math.abs(vel.pitch) * (dtMs / 1000);
         state.boutAxisMotion.roll += Math.abs(vel.roll) * (dtMs / 1000);
+        state.boutRollNet += vel.roll * (dtMs / 1000);
         state.boutPeakSpeed = Math.max(state.boutPeakSpeed, speed);
       } else {
         state.stillTimeMs += dtMs;
@@ -1297,26 +1909,14 @@
       movementBoutsValue.textContent = `${state.boutDurationsMs.length + (state.isMoving ? 1 : 0)}`;
       avgBoutValue.textContent = `${(mean(state.boutDurationsMs) / 1000 || 0).toFixed(1)} s`;
       movementLoadValue.textContent = `${state.totalMovement.toFixed(1)} °`;
-      totalMovementValue.textContent = `${state.totalMovement.toFixed(1)} °`;
       const maxYawSide = Math.max(state.leftYawMotion, state.rightYawMotion);
       yawBalanceValue.textContent = maxYawSide > 0 ? `${(100 * Math.min(state.leftYawMotion, state.rightYawMotion) / maxYawSide).toFixed(0)}%` : "–";
 
       eventNodCount.textContent = String(state.eventCounts.nodding);
       eventShakeCount.textContent = String(state.eventCounts.shaking);
-      eventTiltCount.textContent = String(state.eventCounts.tilting);
+      eventTiltLeftCount.textContent = String(state.eventCounts.tiltLeft);
+      eventTiltRightCount.textContent = String(state.eventCounts.tiltRight);
       eventHeadbangCount.textContent = String(state.eventCounts.headbanging);
-
-      const windowHistory = getWindowHistory();
-      if (windowHistory.length) {
-        const yawVals = windowHistory.map(s => s.pose.yaw);
-        const pitchVals = windowHistory.map(s => s.pose.pitch);
-        const rollVals = windowHistory.map(s => s.pose.roll);
-        romYawValue.textContent = `${(Math.max(...yawVals) - Math.min(...yawVals)).toFixed(1)} °`;
-        romPitchValue.textContent = `${(Math.max(...pitchVals) - Math.min(...pitchVals)).toFixed(1)} °`;
-        romRollValue.textContent = `${(Math.max(...rollVals) - Math.min(...rollVals)).toFixed(1)} °`;
-        const peakExcursion = Math.max(...windowHistory.map(s => Math.hypot(s.pose.yaw, s.pose.pitch, s.pose.roll)));
-        peakExcursionValue.textContent = `${peakExcursion.toFixed(1)} °`;
-      }
 
       const motionHistory = getWindowHistory(MOTION_WINDOW_MS);
       nodFreqValue.textContent = `${estimateFrequency(motionHistory, 'pitchSignal', 3.5, 220).toFixed(2)} Hz`;
@@ -1661,6 +2261,7 @@
       createHandVisual("right", 0x8ec5ff);
 
       avatarHeadGroup = new THREE.Group();
+      avatarHeadGroup.rotation.order = 'YXZ';
       const head = new THREE.Mesh(
         new THREE.SphereGeometry(0.15, 24, 24),
         new THREE.MeshStandardMaterial({ color: 0xdcecff, roughness: 0.45, metalness: 0.06 })
@@ -1775,7 +2376,7 @@
       return world.map((landmark) => {
         if (!isFinitePoseLandmark(landmark)) return null;
         return new THREE.Vector3(
-          -((landmark.x - hipCenter.x) / scale) * factor,
+          ((landmark.x - hipCenter.x) / scale) * factor,
           -((landmark.y - hipCenter.y) / scale) * factor - 0.58,
           -((landmark.z - hipCenter.z) / scale) * factor
         );
@@ -1799,12 +2400,154 @@
       return poseResult?.worldLandmarks?.[0] ?? null;
     }
 
+    function getPoseImageLandmarks(poseResult) {
+      return poseResult?.landmarks?.[0] ?? null;
+    }
+
     function getHandWorldLandmarks(handResult) {
       return handResult?.worldLandmarks ?? [];
     }
 
     function getHandednessLabels(handResult) {
       return handResult?.handedness ?? [];
+    }
+
+    function getVisiblePoseAnchor2D(poseLandmarks, primaryIndex, fallbackIndex) {
+      const primary = poseLandmarks?.[primaryIndex];
+      if (primary && (primary.visibility ?? 1) > 0.25) return primary;
+      const fallback = poseLandmarks?.[fallbackIndex];
+      if (fallback && (fallback.visibility ?? 1) > 0.25) return fallback;
+      return null;
+    }
+
+    function resolveAvatarHandSides(handResult, poseResult) {
+      const hands = handResult?.landmarks ?? [];
+      const handedness = getHandednessLabels(handResult);
+      const poseLandmarks = getPoseImageLandmarks(poseResult);
+      const assignments = new Array(hands.length).fill(null);
+
+      const poseAnchors = poseLandmarks ? {
+        left: getVisiblePoseAnchor2D(poseLandmarks, 15, 11),
+        right: getVisiblePoseAnchor2D(poseLandmarks, 16, 12)
+      } : { left: null, right: null };
+
+      const candidates = [];
+      for (let handIndex = 0; handIndex < hands.length; handIndex += 1) {
+        const wrist = hands[handIndex]?.[0];
+        if (!wrist) continue;
+        // Pose wrists are more reliable than handedness labels when selfie previews are mirrored.
+        for (const side of ["left", "right"]) {
+          const anchor = poseAnchors[side];
+          if (!anchor) continue;
+          candidates.push({
+            handIndex,
+            side,
+            distance: Math.hypot((wrist.x - anchor.x) * 1.6, wrist.y - anchor.y)
+          });
+        }
+      }
+
+      candidates.sort((a, b) => a.distance - b.distance);
+      const assignedHands = new Set();
+      const assignedSides = new Set();
+      for (const candidate of candidates) {
+        if (assignedHands.has(candidate.handIndex) || assignedSides.has(candidate.side)) continue;
+        assignments[candidate.handIndex] = candidate.side;
+        assignedHands.add(candidate.handIndex);
+        assignedSides.add(candidate.side);
+      }
+
+      for (let handIndex = 0; handIndex < hands.length; handIndex += 1) {
+        if (assignments[handIndex]) continue;
+        const label = handedness?.[handIndex]?.[0]?.categoryName?.toLowerCase?.() ?? "";
+        if (label === "left") {
+          assignments[handIndex] = "right";
+          continue;
+        }
+        if (label === "right") {
+          assignments[handIndex] = "left";
+          continue;
+        }
+
+        const wrist = hands[handIndex]?.[0];
+        assignments[handIndex] = wrist && wrist.x > 0.5 ? "left" : "right";
+      }
+
+      return assignments;
+    }
+
+    function hideAvatarHandVisuals(side) {
+      if (avatarHandLines[side]) avatarHandLines[side].visible = false;
+      avatarHandJoints[side].forEach((joint) => { joint.visible = false; });
+    }
+
+    function hideAvatarRigVisuals() {
+      if (avatarBoneLine) avatarBoneLine.visible = false;
+      if (avatarNeckLine) avatarNeckLine.visible = false;
+      avatarJointMeshes.forEach((mesh) => { mesh.visible = false; });
+      hideAvatarHandVisuals("left");
+      hideAvatarHandVisuals("right");
+    }
+
+    function getAvatarFallbackHeadCenter() {
+      if (avatarHeadGroup?.visible) return avatarHeadGroup.position.clone();
+      return new THREE.Vector3(0, 0.18, 0);
+    }
+
+    function updateAvatarHead(facePose, expr, headCenter) {
+      if (!avatarHeadGroup) return;
+
+      avatarHeadGroup.visible = true;
+      avatarHeadGroup.position.copy(headCenter ?? getAvatarFallbackHeadCenter());
+
+      if (facePose) {
+        avatarHeadGroup.rotation.set(
+          THREE.MathUtils.degToRad(-facePose.pitch),
+          THREE.MathUtils.degToRad(facePose.yaw),
+          THREE.MathUtils.degToRad(facePose.roll)
+        );
+      } else {
+        avatarHeadGroup.rotation.set(0, 0, 0);
+      }
+
+      if (!avatarFaceParts) return;
+
+      const eyeOpen = expr?.eyeOpen ?? 1;
+      const browRaise = expr?.browRaise ?? 0;
+      const browFurrow = expr?.browFurrow ?? 0;
+      const jawOpen = expr?.jawOpen ?? 0;
+      const smile = expr?.smile ?? 0;
+      const lipStretch = expr?.lipStretch ?? 0;
+      const noseFlare = expr?.noseFlare ?? 0;
+
+      avatarFaceParts.leftEye.scale.y = 0.25 + eyeOpen * 0.95;
+      avatarFaceParts.rightEye.scale.y = 0.25 + eyeOpen * 0.95;
+
+      avatarFaceParts.leftBrow.position.y = 0.066 + browRaise * 0.035;
+      avatarFaceParts.rightBrow.position.y = 0.066 + browRaise * 0.035;
+      avatarFaceParts.leftBrow.position.x = -0.048 + browFurrow * 0.01;
+      avatarFaceParts.rightBrow.position.x = 0.048 - browFurrow * 0.01;
+
+      avatarFaceParts.leftNostril.position.x = -0.016 - noseFlare * 0.014;
+      avatarFaceParts.rightNostril.position.x = 0.016 + noseFlare * 0.014;
+
+      avatarFaceParts.jawGroup.rotation.x = jawOpen * 0.55;
+      avatarFaceParts.mouth.scale.x = 1 + smile * 0.55 + lipStretch * 0.25;
+      avatarFaceParts.mouth.scale.y = 1 + jawOpen * 1.25;
+      avatarFaceParts.mouth.position.y = -0.025 - jawOpen * 0.02;
+    }
+
+    function renderHeadOnlyAvatar(facePose, expr) {
+      // Keep face-driven motion visible even when the pose model drops out for a few frames.
+      const shouldShowHead = Boolean(facePose || expr);
+      avatarRoot.visible = shouldShowHead;
+      hideAvatarRigVisuals();
+      if (shouldShowHead) {
+        updateAvatarHead(facePose, expr, getAvatarFallbackHeadCenter());
+      } else if (avatarHeadGroup) {
+        avatarHeadGroup.visible = false;
+      }
+      renderAvatar3D();
     }
 
     function normaliseHandWorldLandmarks(worldLandmarks, anchor) {
@@ -1820,7 +2563,7 @@
       return worldLandmarks.map((landmark) => {
         if (!isFinitePoseLandmark(landmark)) return null;
         return new THREE.Vector3(
-          anchor.x - ((landmark.x - wrist.x) / palmWidth) * factor,
+          anchor.x + ((landmark.x - wrist.x) / palmWidth) * factor,
           anchor.y - ((landmark.y - wrist.y) / palmWidth) * factor,
           anchor.z - ((landmark.z - wrist.z) / palmWidth) * factor
         );
@@ -1879,12 +2622,13 @@
       const mapped = normalisePoseWorldLandmarks(world);
 
       if (!world || !mapped) {
-        avatarRoot.visible = false;
-        renderAvatar3D();
+        renderHeadOnlyAvatar(facePose, expr);
         return;
       }
 
       avatarRoot.visible = true;
+      avatarBoneLine.visible = true;
+      avatarNeckLine.visible = true;
 
       const bonePositions = avatarBoneLine.geometry.attributes.position.array;
       let offset = 0;
@@ -1930,8 +2674,7 @@
       const rightHip = mapped[24];
 
       if (!(leftShoulder && rightShoulder && leftHip && rightHip)) {
-        avatarRoot.visible = false;
-        renderAvatar3D();
+        renderHeadOnlyAvatar(facePose, expr);
         return;
       }
 
@@ -1943,44 +2686,7 @@
       const headCenter = headAnchor.clone();
       headCenter.y += 0.06;
 
-      avatarHeadGroup.visible = true;
-      avatarHeadGroup.position.copy(headCenter);
-
-      if (facePose) {
-        avatarHeadGroup.rotation.set(
-          THREE.MathUtils.degToRad(facePose.pitch),
-          THREE.MathUtils.degToRad(-facePose.yaw),
-          THREE.MathUtils.degToRad(-facePose.roll)
-        );
-      } else {
-        avatarHeadGroup.rotation.set(0, 0, 0);
-      }
-
-      if (avatarFaceParts) {
-        const eyeOpen = expr?.eyeOpen ?? 1;
-        const browRaise = expr?.browRaise ?? 0;
-        const browFurrow = expr?.browFurrow ?? 0;
-        const jawOpen = expr?.jawOpen ?? 0;
-        const smile = expr?.smile ?? 0;
-        const lipStretch = expr?.lipStretch ?? 0;
-        const noseFlare = expr?.noseFlare ?? 0;
-
-        avatarFaceParts.leftEye.scale.y = 0.25 + eyeOpen * 0.95;
-        avatarFaceParts.rightEye.scale.y = 0.25 + eyeOpen * 0.95;
-
-        avatarFaceParts.leftBrow.position.y = 0.066 + browRaise * 0.035;
-        avatarFaceParts.rightBrow.position.y = 0.066 + browRaise * 0.035;
-        avatarFaceParts.leftBrow.position.x = -0.048 + browFurrow * 0.01;
-        avatarFaceParts.rightBrow.position.x = 0.048 - browFurrow * 0.01;
-
-        avatarFaceParts.leftNostril.position.x = -0.016 - noseFlare * 0.014;
-        avatarFaceParts.rightNostril.position.x = 0.016 + noseFlare * 0.014;
-
-        avatarFaceParts.jawGroup.rotation.x = jawOpen * 0.55;
-        avatarFaceParts.mouth.scale.x = 1 + smile * 0.55 + lipStretch * 0.25;
-        avatarFaceParts.mouth.scale.y = 1 + jawOpen * 1.25;
-        avatarFaceParts.mouth.position.y = -0.025 - jawOpen * 0.02;
-      }
+      updateAvatarHead(facePose, expr, headCenter);
 
       const neckPositions = avatarNeckLine.geometry.attributes.position.array;
       neckPositions[0] = shoulderMid.x;
@@ -1994,26 +2700,25 @@
       let leftHandSeen = false;
       let rightHandSeen = false;
       const handWorldSets = getHandWorldLandmarks(handResult);
-      const handedness = getHandednessLabels(handResult);
+      const handSides = resolveAvatarHandSides(handResult, poseResult);
 
       for (let i = 0; i < handWorldSets.length; i += 1) {
         const handWorld = handWorldSets[i];
-        const label = handedness?.[i]?.[0]?.categoryName?.toLowerCase?.() ?? "";
-        const side = label === "left" ? "left" : (label === "right" ? "right" : null);
+        const side = handSides[i];
         if (!side) continue;
-        const wristAnchor = side === "left" ? mapped[15] : mapped[16];
+        const wristAnchor = side === "left"
+          ? (mapped[15] ?? mapped[13] ?? mapped[11])
+          : (mapped[16] ?? mapped[14] ?? mapped[12]);
         updateAvatarHand(side, handWorld, wristAnchor);
         if (side === "left") leftHandSeen = true;
         if (side === "right") rightHandSeen = true;
       }
 
       if (!leftHandSeen) {
-        if (avatarHandLines.left) avatarHandLines.left.visible = false;
-        avatarHandJoints.left.forEach((joint) => { joint.visible = false; });
+        hideAvatarHandVisuals("left");
       }
       if (!rightHandSeen) {
-        if (avatarHandLines.right) avatarHandLines.right.visible = false;
-        avatarHandJoints.right.forEach((joint) => { joint.visible = false; });
+        hideAvatarHandVisuals("right");
       }
 
       renderAvatar3D();
@@ -2021,19 +2726,22 @@
 
     function clearMetricsForNoFace() {
       updateTrackingState(false);
+      state.smoothedHeadCrop = null;
       currentActionEl.textContent = "Still";
       updateDistanceUI(null);
       updateGeometryUI(null);
-      angularSpeedValue.textContent = "0.0 °/s";
-      angularAccelValue.textContent = "0.0 °/s²";
-      movementAmplitudeValue.textContent = "0.0 °";
-      for (const key of Object.keys(expressionEls)) updateMiniMetric(key, 0);
+      updateAttentionUI(null);
+      updateHeadDistanceDelta(Number.NaN);
+      for (const key of Object.keys(eyeMetricEls)) updateMiniMetric(key, 0);
+      updateBasicExpressionsUI(null);
+      talkingStateValue.textContent = "–";
+      yawningStateValue.textContent = "–";
     }
 
     function processFrame(result, poseResult, handResult, now) {
       clearOverlay();
       drawPoseOverlay(poseResult);
-      drawHandOverlay(handResult, now);
+      drawHandOverlay(handResult);
 
       const landmarks = result?.faceLandmarks?.[0];
       const hasFace = Boolean(landmarks);
@@ -2041,6 +2749,8 @@
 
       if (!hasFace) {
         clearMetricsForNoFace();
+        clearHeadView();
+        updateAttentionUI(null);
         if (state.sessionStartTime != null) {
           elapsedTimeValue.textContent = formatDurationMs(now - state.sessionStartTime);
         }
@@ -2049,17 +2759,26 @@
       }
 
       drawFace(landmarks);
+      drawHeadView(landmarks, poseResult);
 
       const geometry = calculateGeometry(landmarks);
+      if (geometry && referenceFaceWidthPx == null) {
+        referenceFaceWidthPx = geometry.faceWidth;
+      }
       updateDistanceUI(geometry);
       updateGeometryUI(geometry);
 
       const blend = getBlendshapeMap(result);
       const expressions = deriveExpressions(blend);
-      updateExpressionUI(expressions);
+      updateEyesUI(expressions);
+      updateBasicExpressionsUI(deriveBasicExpressions(blend));
+      updateTalkingYawning(blend, now);
       updateBlinkCount(expressions);
 
       const pose = estimatePose(result);
+      const attention = estimateAttention(landmarks, pose);
+      updateAttentionUI(attention);
+
       if (!pose) {
         if (state.sessionStartTime != null) {
           elapsedTimeValue.textContent = formatDurationMs(now - state.sessionStartTime);
@@ -2128,26 +2847,30 @@
     }
 
     function processCurrentVideoFrame(timestamp) {
-      updateVideoDrawRect();
-      if (!state.loggedFirstFrame) {
-        addLog("Processing live camera frames.");
-        state.loggedFirstFrame = true;
-      }
-      const faceResult = faceLandmarker.detectForVideo(video, timestamp);
-      state.cachedFaceResult = faceResult;
+      try {
+        updateVideoDrawRect();
+        if (!state.loggedFirstFrame) {
+          addLog("Processing live camera frames.");
+          state.loggedFirstFrame = true;
+        }
+        const faceResult = faceLandmarker.detectForVideo(video, timestamp);
+        state.cachedFaceResult = faceResult;
 
-      if (!state.cachedHandResult || timestamp - state.lastHandProcessTime >= HAND_UPDATE_INTERVAL_MS) {
-        state.cachedHandResult = handLandmarker.detectForVideo(video, timestamp);
-        state.lastHandProcessTime = timestamp;
-      }
+        if (!state.cachedHandResult || timestamp - state.lastHandProcessTime >= HAND_UPDATE_INTERVAL_MS) {
+          state.cachedHandResult = handLandmarker.detectForVideo(video, timestamp);
+          state.lastHandProcessTime = timestamp;
+        }
 
-      if (!state.cachedPoseResult || timestamp - state.lastPoseProcessTime >= POSE_UPDATE_INTERVAL_MS) {
-        state.cachedPoseResult = poseLandmarker.detectForVideo(video, timestamp);
-        state.lastPoseProcessTime = timestamp;
-      }
+        if (!state.cachedPoseResult || timestamp - state.lastPoseProcessTime >= POSE_UPDATE_INTERVAL_MS) {
+          state.cachedPoseResult = poseLandmarker.detectForVideo(video, timestamp);
+          state.lastPoseProcessTime = timestamp;
+        }
 
-      processFrame(faceResult, state.cachedPoseResult, state.cachedHandResult, timestamp);
-      updateFps(timestamp);
+        processFrame(faceResult, state.cachedPoseResult, state.cachedHandResult, timestamp);
+        updateFps(timestamp);
+      } catch (error) {
+        logRuntimeError(`Frame-processing error: ${error?.message || String(error)}`);
+      }
     }
 
     function runTrackingLoop(timestamp) {
@@ -2161,8 +2884,13 @@
         return;
       }
 
+      const currentVideoTime = video.currentTime;
+      if (currentVideoTime === lastVideoTime) {
+        return;
+      }
+
       state.lastInferenceTimestamp = timestamp;
-      lastVideoTime = video.currentTime;
+      lastVideoTime = currentVideoTime;
       processCurrentVideoFrame(timestamp);
     }
 
@@ -2181,13 +2909,38 @@
       animationFrameId = requestAnimationFrame(runTrackingLoop);
     }
 
+    function releaseCameraStream() {
+      stopFrameScheduling();
+      lastVideoTime = -1;
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+      video.pause();
+      video.srcObject = null;
+    }
+
     async function startCamera() {
       if (!faceLandmarker || !handLandmarker || !poseLandmarker) {
         addLog("Camera start requested before the models were ready.", "warn");
         setStatus("The models are still loading. Please wait a moment.", "warn");
         return;
       }
+      if (mediaStream) {
+        setStatus("Camera is already running.", "ok");
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        addLog("Camera APIs are unavailable in this browser context.", "error");
+        setStatus("This browser does not expose camera access to the page.", "warn");
+        return;
+      }
       try {
+        startBtn.disabled = true;
+        stopBtn.disabled = true;
+        calibrateBtn.disabled = true;
+        distanceRefBtn.disabled = true;
+        setStatus("Requesting camera access…");
         addLog("Requesting camera access…");
         const mobile = window.matchMedia("(max-width: 900px)").matches;
         const constraints = {
@@ -2199,6 +2952,7 @@
           }
         };
         desiredInferenceIntervalMs = mobile ? 50 : 33;
+        resetDerivedState();
         mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         state.sessionStartTime = performance.now();
         video.srcObject = mediaStream;
@@ -2212,8 +2966,6 @@
         state.lastInferenceTimestamp = -Infinity;
         renderLoop();
         addLog(`Tracking loop started (${mobile ? "mobile" : "desktop"} profile, target ≈ ${Math.round(1000 / desiredInferenceIntervalMs)} face fps; hands/pose throttled).`);
-        lastFpsTime = performance.now();
-        frameCounter = 0;
         startBtn.disabled = true;
         stopBtn.disabled = false;
         calibrateBtn.disabled = false;
@@ -2221,6 +2973,21 @@
         addLog(`Camera stream started (${video.videoWidth || "?"}×${video.videoHeight || "?"}).`);
         setStatus("Camera started. Look straight at the camera and click ‘Set neutral pose’. Use ‘Set reference distance’ if you want an approximate centimetre estimate.", "ok");
       } catch (error) {
+        releaseCameraStream();
+        clearOverlay();
+        clearHeadView();
+        updateAvatar3D(null, null, null, null);
+        resetPoseUI();
+        resetCachedTaskResults();
+        resetDerivedState();
+        clearMetricsForNoFace();
+        trackingState.textContent = "Waiting";
+        trackingHint.textContent = "Camera stream is off until access succeeds.";
+        fpsValue.textContent = "0";
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        calibrateBtn.disabled = true;
+        distanceRefBtn.disabled = true;
         addLog(`Camera start failed: ${error?.name || "Error"} — ${describeCameraError(error)}`, "error");
         setStatus(`Could not start the camera: ${describeCameraError(error)}`, "warn");
       }
@@ -2241,9 +3008,22 @@
       state.boutStartTime = null;
       state.boutDurationsMs = [];
       state.boutAxisMotion = { yaw: 0, pitch: 0, roll: 0 };
+      state.boutRollNet = 0;
       state.boutPeakSpeed = 0;
       state.currentAction = "Still";
-      state.eventCounts = { nodding: 0, shaking: 0, tilting: 0, headbanging: 0 };
+      state.eventCounts = { nodding: 0, shaking: 0, tiltLeft: 0, tiltRight: 0, headbanging: 0 };
+      state.blinkCount = 0;
+      state.blinkClosed = false;
+      state.sessionStartTime = null;
+      state.smoothedHeadCrop = null;
+      state.jawHistory = [];
+      state.talkingState = false;
+      state.yawningState = false;
+      state.yawnThresholdStartTime = null;
+      neutralRotation = null;
+      referenceFaceWidthPx = null;
+      referenceDistanceCm = 50;
+      referenceIsDefault = true;
       currentActionEl.textContent = "Still";
       movingTimeValue.textContent = "0.0 s";
       stillTimeValue.textContent = "0.0 s";
@@ -2251,34 +3031,29 @@
       avgBoutValue.textContent = "0.0 s";
       maxHeadSpeedValue.textContent = "0.0 °/s";
       movementLoadValue.textContent = "0.0 °";
-      totalMovementValue.textContent = "0.0 °";
       yawBalanceValue.textContent = "–";
-      peakExcursionValue.textContent = "0.0 °";
-      romYawValue.textContent = "0.0 °";
-      romPitchValue.textContent = "0.0 °";
-      romRollValue.textContent = "0.0 °";
       nodFreqValue.textContent = "0.00 Hz";
       shakeFreqValue.textContent = "0.00 Hz";
       tiltFreqValue.textContent = "0.00 Hz";
       headbangFreqValue.textContent = "0.00 Hz";
       eventNodCount.textContent = "0";
       eventShakeCount.textContent = "0";
-      eventTiltCount.textContent = "0";
+      eventTiltLeftCount.textContent = "0";
+      eventTiltRightCount.textContent = "0";
       eventHeadbangCount.textContent = "0";
+      blinkCountValue.textContent = "0";
+      elapsedTimeValue.textContent = "0:00";
+      neutralState.textContent = "Not set";
+      talkingStateValue.textContent = "–";
+      yawningStateValue.textContent = "–";
     }
 
     function stopCamera() {
-      stopFrameScheduling();
-      lastVideoTime = -1;
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-      }
+      releaseCameraStream();
       if (state.isMoving) finalizeBout(performance.now());
-      video.pause();
-      video.srcObject = null;
       clearOverlay();
-      updateAvatar3D(null, null);
+      clearHeadView();
+      updateAvatar3D(null, null, null, null);
       resetPoseUI();
       resetCachedTaskResults();
       resetDerivedState();
@@ -2323,7 +3098,7 @@
         setStatus("No face was detected in the latest live frame. Look at the camera and try again.", "warn");
         return;
       }
-      const answer = window.prompt("Current face-to-camera distance in cm:", referenceDistanceCm ? String(referenceDistanceCm) : "60");
+      const answer = window.prompt("Current face-to-camera distance in cm:", String(referenceDistanceCm));
       if (answer === null) return;
       const value = Number(answer);
       if (!Number.isFinite(value) || value <= 0) {
@@ -2332,6 +3107,7 @@
       }
       referenceDistanceCm = value;
       referenceFaceWidthPx = faceWidth;
+      referenceIsDefault = false;
       addLog(`Reference distance stored from the latest live frame (${value.toFixed(1)} cm).`);
       setStatus("Reference distance stored. The distance readout now uses that calibration.", "ok");
     }
@@ -2430,14 +3206,24 @@
       showFaceIds = !showFaceIds;
       meshIdsBtn.textContent = `IDs: ${showFaceIds ? "on" : "off"}`;
     });
-    window.addEventListener("resize", resizeOverlay);
-    window.addEventListener("resize", resizeAvatar3D);
+    window.addEventListener("resize", resizeOverlay, { passive: true });
+    window.addEventListener("resize", resizeHeadView, { passive: true });
+    window.addEventListener("resize", resizeAvatar3D, { passive: true });
+
+    const stageObserver = new ResizeObserver(() => {
+      resizeOverlay();
+      resizeHeadView();
+      resizeAvatar3D();
+    });
+    const headStageEl = headFeedCanvas.parentElement;
+    if (headStageEl) stageObserver.observe(headStageEl);
+    if (avatar3dEl) stageObserver.observe(avatar3dEl);
     window.addEventListener("error", (event) => {
-      addLog(`Unhandled error: ${event.message}`, "error");
+      logRuntimeError(`Unhandled error: ${event.message}`);
     });
     window.addEventListener("unhandledrejection", (event) => {
       const reason = event.reason?.message || String(event.reason);
-      addLog(`Unhandled rejection: ${reason}`, "error");
+      logRuntimeError(`Unhandled rejection: ${reason}`);
     });
 
     init();
