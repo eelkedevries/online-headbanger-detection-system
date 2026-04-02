@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Online Headbanger Detection System</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1115;
+      --panel: #171a21;
+      --panel-2: #1f2430;
+      --border: #2a3142;
+      --text: #e9edf5;
+      --muted: #9aa5b1;
+      --ok: #40c057;
+      --warn: #ff922b;
+      --accent: #6aa9ff;
+      --accent-soft: rgba(106, 169, 255, 0.18);
+      --accent-line: rgba(175, 205, 255, 0.22);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b0d11 0%, #121722 100%);
+      color: var(--text);
+    }
+
+    .app {
+      width: min(1340px, calc(100vw - 28px));
+      margin: 18px auto 32px;
+    }
+
+    .header, .panel, .metric, .controls {
+      background: rgba(23, 26, 33, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      backdrop-filter: blur(8px);
+    }
+
+    .header {
+      padding: 22px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.1;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+      max-width: 95ch;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 16px;
+      position: sticky;
+      top: 14px;
+    }
+
+    .log-bottom-panel {
+      position: static;
+      margin-top: 16px;
+    }
+
+    .visual-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+
+    .visual-box {
+      display: grid;
+      gap: 8px;
+    }
+
+    .visual-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.01em;
+    }
+
+    .hidden-feed-stage {
+      position: absolute;
+      left: -10000px;
+      top: -10000px;
+      width: min(42vw, 480px);
+      aspect-ratio: 1 / 1;
+      visibility: hidden;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .head-pose-details {
+      display: none;
+    }
+
+    .axis-ticks {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .axis-ticks span {
+      text-align: center;
+    }
+
+    .controls {
+      padding: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.12s ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    #startBtn { background: rgba(64, 192, 87, 0.14); border-color: rgba(64, 192, 87, 0.45); }
+    #stopBtn { background: rgba(250, 82, 82, 0.14); border-color: rgba(250, 82, 82, 0.45); }
+    #calibrateBtn { background: rgba(106, 169, 255, 0.14); border-color: rgba(106, 169, 255, 0.45); }
+    #distanceRefBtn { background: rgba(255, 146, 43, 0.14); border-color: rgba(255, 146, 43, 0.45); }
+
+    .status {
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(31, 36, 48, 0.9);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      line-height: 1.5;
+      min-height: 48px;
+    }
+
+    .status.ok { color: #c9f7d1; border-color: rgba(64, 192, 87, 0.45); }
+    .status.warn { color: #ffe2c2; border-color: rgba(255, 146, 43, 0.45); }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #05070b;
+      border: 1px solid var(--border);
+    }
+
+    video, #overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    video {
+      object-fit: contain;
+      background: #05070b;
+      transform: scaleX(-1);
+    }
+
+    #overlay {
+      pointer-events: none;
+      transform: scaleX(-1);
+    }
+
+    .head-stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #05070b;
+      border: 1px solid var(--border);
+    }
+
+    #headFeedCanvas,
+    #headOverlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      transform: scaleX(-1);
+    }
+
+    #headOverlay {
+      pointer-events: none;
+    }
+
+    .avatar-stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      min-height: 0;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+      background:
+        radial-gradient(circle at 50% 28%, rgba(120, 190, 255, 0.12), rgba(7, 11, 18, 0) 42%),
+        linear-gradient(180deg, #0b1118 0%, #090d14 100%);
+    }
+
+    .avatar-stage canvas {
+      position: static;
+      inset: auto;
+      width: 100%;
+      height: 100%;
+      display: block;
+      transform: none;
+      pointer-events: none;
+    }
+
+
+    .log-panel {
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(31, 36, 48, 0.9);
+      border: 1px solid var(--border);
+    }
+
+    .log-header {
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .log-box {
+      max-height: 160px;
+      overflow: auto;
+      background: rgba(7,10,15,0.75);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      color: #d9e3ef;
+    }
+
+    .log-line {
+      display: block;
+      margin: 0 0 4px;
+    }
+
+    .log-line.warn {
+      color: #ffd8a8;
+    }
+
+    .log-line.error {
+      color: #ffb0b0;
+    }
+
+    .footnote {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 14px;
+    }
+
+    .metric h2,
+    .metric h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .metric-value.small {
+      font-size: 22px;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .bar-block {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .bar-track {
+      position: relative;
+      height: 12px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(106,169,255,0.08) 0%, rgba(255,255,255,0.05) 50%, rgba(106,169,255,0.08) 100%);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .bar-track::after {
+      content: "";
+      position: absolute;
+      top: -1px;
+      bottom: -1px;
+      left: calc(50% - 1px);
+      width: 2px;
+      background: rgba(255,255,255,0.18);
+    }
+
+    .bar-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      background: linear-gradient(90deg, rgba(64,192,87,0.65), rgba(106,169,255,0.95));
+      border-radius: 999px;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 6px 12px;
+      align-items: baseline;
+      font-size: 14px;
+    }
+
+    .kv .key {
+      color: var(--muted);
+    }
+
+    .section-label {
+      margin: 2px 0 10px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .mini-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 48px;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .mini-row .label {
+      color: var(--muted);
+    }
+
+    .mini-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .mini-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255, 174, 107, 0.85), rgba(106, 169, 255, 0.95));
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(106, 169, 255, 0.35);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 1080px) {
+      .layout { grid-template-columns: 1fr; }
+      .panel { position: static; }
+    }
+
+    @media (max-width: 640px) {
+      .app { width: min(100vw - 18px, 1340px); margin-top: 10px; }
+      .header, .panel, .metric { padding: 14px; }
+      .grid-2, .grid-3, .two-col { grid-template-columns: 1fr; }
+      .mini-row { grid-template-columns: 90px 1fr 42px; }
+      .visual-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+  </style>
+  <script type="module" crossorigin src="./assets/index-DZfl0pcO.js"></script>
+</head>
+<body>
+  <main class="app">
+    <section class="header">
+      <h1>Online Headbanger Detection System</h1>
+      <p class="subtitle">Static browser demo using MediaPipe Face Landmarker. This version adds pose, geometry, expression, distance, movement, frequency, and behavioural summary measures on top of the face overlay.</p>
+    </section>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="controls">
+          <button id="startBtn" type="button" disabled>Start camera</button>
+          <button id="stopBtn" type="button" disabled>Stop camera</button>
+          <button id="calibrateBtn" type="button" disabled>Set neutral pose</button>
+          <button id="distanceRefBtn" type="button" disabled>Set reference distance</button>
+          <button id="meshIdsBtn" type="button">IDs: off</button>
+        </div>
+        <p id="status" class="status">Loading MediaPipe model…</p>
+        <div class="visual-grid">
+          <div class="visual-box">
+            <div class="visual-label">Face close-up + landmarks</div>
+            <div class="head-stage">
+              <canvas id="headFeedCanvas"></canvas>
+              <canvas id="headOverlay"></canvas>
+            </div>
+          </div>
+          <div class="visual-box">
+            <div class="visual-label">3D avatar</div>
+            <div id="avatar3d" class="avatar-stage"></div>
+          </div>
+        </div>
+
+        <div class="hidden-feed-stage">
+          <div class="stage">
+            <video id="video" playsinline autoplay muted></video>
+            <canvas id="overlay"></canvas>
+          </div>
+        </div>
+
+        <p class="footnote">The face close-up is an automatically cropped head-and-shoulders view derived from the full camera frame, and it keeps the detected face centred as far as the full frame allows. Distance remains approximate because this is monocular webcam video.</p>
+      </section>
+
+
+      <section class="grid">
+
+        <div class="metric">
+          <h2>Head pose</h2>
+          <div class="bar-block">
+            <div class="bar-label"><span>Yaw <span class="muted" style="font-weight:400;font-size:12px;">(nodding "no")</span></span><span id="yawValue">0.0°</span></div>
+            <div class="bar-track"><div id="yawBar" class="bar-fill"></div></div>
+          </div>
+          <div class="bar-block">
+            <div class="bar-label"><span>Pitch <span class="muted" style="font-weight:400;font-size:12px;">(nodding "yes")</span></span><span id="pitchValue">0.0°</span></div>
+            <div class="bar-track"><div id="pitchBar" class="bar-fill"></div></div>
+          </div>
+          <div class="bar-block">
+            <div class="bar-label"><span>Roll <span class="muted" style="font-weight:400;font-size:12px;">(tilting sideways)</span></span><span id="rollValue">0.0°</span></div>
+            <div class="bar-track"><div id="rollBar" class="bar-fill"></div></div>
+            <div class="axis-ticks" aria-hidden="true">
+              <span>-180</span><span>-90</span><span>0</span><span>90</span><span>180</span>
+            </div>
+          </div>
+          <div class="bar-block">
+            <div class="bar-label"><span>Distance</span><span id="headDistanceValue">–</span></div>
+            <div class="bar-track"><div id="headDistanceBar" class="bar-fill"></div></div>
+            <div class="axis-ticks" aria-hidden="true">
+              <span>-20</span><span>-10</span><span>0</span><span>+10</span><span>+20</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric">
+          <h3>Eyes</h3>
+          <div class="mini-row"><div class="label">Blink</div><div class="mini-track"><div id="exprBlinkBar" class="mini-fill"></div></div><div id="exprBlinkValue">0%</div></div>
+          <div class="mini-row"><div class="label">Eye openness</div><div class="mini-track"><div id="exprOpenBar" class="mini-fill"></div></div><div id="exprOpenValue">0%</div></div>
+          <div class="mini-row"><div class="label">Squint</div><div class="mini-track"><div id="exprSquintBar" class="mini-fill"></div></div><div id="exprSquintValue">0%</div></div>
+          <div class="mini-row"><div class="label">Brow raise</div><div class="mini-track"><div id="exprBrowRaiseBar" class="mini-fill"></div></div><div id="exprBrowRaiseValue">0%</div></div>
+          <div class="mini-row"><div class="label">Brow furrow</div><div class="mini-track"><div id="exprBrowFurrowBar" class="mini-fill"></div></div><div id="exprBrowFurrowValue">0%</div></div>
+          <div class="muted" style="margin-top: 8px; font-size: 12px;">Heuristic eye and brow estimates derived from face blendshapes.</div>
+        </div>
+
+        <div class="metric">
+          <h3>Basic expressions</h3>
+          <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+            <span class="muted" style="font-size: 13px;">Dominant:</span>
+            <span id="dominantExprValue" class="pill">–</span>
+          </div>
+          <div class="mini-row"><div class="label">Happiness</div><div class="mini-track"><div id="basicHappinessBar" class="mini-fill"></div></div><div id="basicHappinessValue">0%</div></div>
+          <div class="mini-row"><div class="label">Sadness</div><div class="mini-track"><div id="basicSadnessBar" class="mini-fill"></div></div><div id="basicSadnessValue">0%</div></div>
+          <div class="mini-row"><div class="label">Fear</div><div class="mini-track"><div id="basicFearBar" class="mini-fill"></div></div><div id="basicFearValue">0%</div></div>
+          <div class="mini-row"><div class="label">Disgust</div><div class="mini-track"><div id="basicDisgustBar" class="mini-fill"></div></div><div id="basicDisgustValue">0%</div></div>
+          <div class="mini-row"><div class="label">Anger</div><div class="mini-track"><div id="basicAngerBar" class="mini-fill"></div></div><div id="basicAngerValue">0%</div></div>
+          <div class="mini-row"><div class="label">Surprise</div><div class="mini-track"><div id="basicSurpriseBar" class="mini-fill"></div></div><div id="basicSurpriseValue">0%</div></div>
+          <div class="mini-row"><div class="label">Contempt</div><div class="mini-track"><div id="basicContemptBar" class="mini-fill"></div></div><div id="basicContemptValue">0%</div></div>
+          <div class="muted" style="margin-top: 8px; font-size: 12px;">Heuristic estimates derived from blendshape weights. Not a calibrated classifier.</div>
+        </div>
+
+        <div class="grid-2">
+          <div class="metric">
+            <h3>Behaviour summary</h3>
+            <div class="kv">
+              <div class="key">Time moving</div><div id="movingTimeValue">0.0 s</div>
+              <div class="key">Time still</div><div id="stillTimeValue">0.0 s</div>
+              <div class="key">Movement bouts</div><div id="movementBoutsValue">0</div>
+              <div class="key">Average bout duration</div><div id="avgBoutValue">0.0 s</div>
+              <div class="key">Maximum head speed</div><div id="maxHeadSpeedValue">0.0 °/s</div>
+              <div class="key">Cumulative movement load</div><div id="movementLoadValue">0.0 °</div>
+              <div class="key">Left/right yaw balance</div><div id="yawBalanceValue">–</div>
+            </div>
+          </div>
+          <div class="metric">
+            <h3>Event classification</h3>
+            <div class="kv">
+              <div class="key">Nodding YES</div><div id="eventNodCount">0</div>
+              <div class="key">Nodding NO</div><div id="eventShakeCount">0</div>
+              <div class="key">Head tilt left</div><div id="eventTiltLeftCount">0</div>
+              <div class="key">Head tilt right</div><div id="eventTiltRightCount">0</div>
+              <div class="key">Headbanging counts</div><div id="eventHeadbangCount">0</div>
+              <div class="key">Blink count</div><div id="blinkCountValue">0</div>
+              <div class="key">Elapsed time</div><div id="elapsedTimeValue">0:00</div>
+              <div class="key">Neutral pose</div><div id="neutralState">Not set</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="metric">
+            <h3>Tracking</h3>
+            <div class="metric-value small" id="trackingState">Waiting</div>
+            <div class="muted" id="trackingHint">Start the camera to begin tracking.</div>
+          </div>
+          <div class="metric">
+            <h3>Current action</h3>
+            <div class="metric-value small" id="currentAction">Still</div>
+            <div class="muted">Instant classification from pose velocity.</div>
+          </div>
+          <div class="metric">
+            <h3>Frame rate</h3>
+            <div class="metric-value small" id="fpsValue">0</div>
+            <div class="muted">Face-tracking update rate.</div>
+          </div>
+        </div>
+
+        <div class="metric">
+          <h3>Detected actions</h3>
+          <div class="kv">
+            <div class="key">Talking</div><div id="talkingStateValue">–</div>
+            <div class="key">Yawning</div><div id="yawningStateValue">–</div>
+          </div>
+          <div class="muted" style="margin-top: 8px; font-size: 12px;">Talking: jaw oscillation over 1.5 s. Yawning: sustained wide jaw open &gt; 1.8 s.</div>
+        </div>
+
+        <div class="metric">
+          <h3>Attention / gaze estimate</h3>
+          <div class="two-col">
+            <div class="kv">
+              <div class="key">Looking at display/camera</div><div id="lookingAtCameraValue">–</div>
+              <div class="key">Looking away / distracted</div><div id="lookingAwayValue">–</div>
+            </div>
+            <div class="kv">
+              <div class="key">Horizontal gaze offset</div><div id="gazeHorizontalValue">–</div>
+              <div class="key">Vertical gaze offset</div><div id="gazeVerticalValue">–</div>
+            </div>
+          </div>
+          <div class="muted" id="attentionHint" style="margin-top: 10px;">Heuristic estimate from head orientation and iris position.</div>
+        </div>
+
+        <div class="grid-2">
+          <div class="metric">
+            <h3>Repetition frequency</h3>
+            <div class="kv">
+              <div class="key">Nodding</div><div id="nodFreqValue">0.00 Hz</div>
+              <div class="key">Shaking</div><div id="shakeFreqValue">0.00 Hz</div>
+              <div class="key">Tilting</div><div id="tiltFreqValue">0.00 Hz</div>
+              <div class="key">Headbanging</div><div id="headbangFreqValue">0.00 Hz</div>
+            </div>
+          </div>
+          <div class="metric">
+            <h3>Distance and depth proxy</h3>
+            <div class="metric-value small" id="distanceValue">–</div>
+            <div class="muted" id="distanceHint">Approximate only. Set a reference distance for a rough centimetre estimate.</div>
+            <div class="kv" style="margin-top: 10px;">
+              <div class="key">Distance mode</div><div id="distanceMode">Proxy only</div>
+              <div class="key">Face width</div><div id="faceWidthPx">–</div>
+              <div class="key">Face height</div><div id="faceHeightPx">–</div>
+              <div class="key">Inter-eye distance</div><div id="interEyePxValue">–</div>
+              <div class="key">Iris diameter proxy</div><div id="irisDiameterPxValue">–</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric">
+          <h3>Face geometry</h3>
+          <div class="two-col">
+            <div class="kv">
+              <div class="key">Face width</div><div id="geomFaceWidthEstimate">–</div>
+              <div class="key">Face height</div><div id="geomFaceHeightEstimate">–</div>
+              <div class="key">Inter-eye distance</div><div id="geomInterEyeEstimate">–</div>
+              <div class="key">Iris diameter</div><div id="geomIrisEstimate">–</div>
+              <div class="key">Mouth width</div><div id="mouthWidthValue">–</div>
+              <div class="key">Mouth height</div><div id="mouthHeightValue">–</div>
+            </div>
+            <div class="kv">
+              <div class="key">Mouth aspect ratio</div><div id="mouthAspectValue">–</div>
+              <div class="key">Eye aspect ratio (left)</div><div id="earLeftValue">–</div>
+              <div class="key">Eye aspect ratio (right)</div><div id="earRightValue">–</div>
+              <div class="key">Eyebrow height (left)</div><div id="browLeftValue">–</div>
+              <div class="key">Eyebrow height (right)</div><div id="browRightValue">–</div>
+              <div class="key">Face width/height ratio</div><div id="faceRatioValue">–</div>
+              <div class="key">Screen translation X</div><div id="faceX">–</div>
+              <div class="key">Screen translation Y</div><div id="faceY">–</div>
+            </div>
+          </div>
+          <div class="muted" style="margin-top: 10px; font-size: 12px;">Measurement estimates are shown as px | visual degrees | cm and use the current distance calibration plus an assumed 60 deg webcam horizontal field of view.</div>
+        </div>
+
+      </section>
+    </div>
+
+    <section class="panel log-bottom-panel">
+      <div class="log-panel">
+        <div class="log-header">Startup log</div>
+        <div id="startupLog" class="log-box" aria-live="polite"></div>
+      </div>
+    </section>
+  </main>
+
+
+</body>
+</html>
