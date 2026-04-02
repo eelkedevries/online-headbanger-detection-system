@@ -1,5 +1,3 @@
-import { getAdaptiveNeutralThreshold } from './expressions.js';
-
 // MediaPipe Face Landmarker 52 blendshape names (ARKit convention)
 const BLENDSHAPE_NAMES = [
   '_neutral',
@@ -20,7 +18,7 @@ const BLENDSHAPE_NAMES = [
   'noseSneerLeft', 'noseSneerRight',
 ];
 
-const EXPR_KEYS = ['happiness', 'sadness', 'fear', 'disgust', 'anger', 'surprise', 'contempt'];
+const EXPR_KEYS = ['neutral', 'happiness', 'sadness', 'fear', 'disgust', 'anger', 'surprise', 'contempt'];
 
 const CSV_HEADERS = [
   'timestamp_ms', 'yaw', 'pitch', 'roll',
@@ -63,17 +61,7 @@ export function isRecording() {
 // Called from tracker.js processFrame when pose and blend are available.
 export function recordFrame(timestamp, pose, blend, basicExpr, speed, action, blinkState, talkingState, yawningState, qualityScore) {
   if (!_recording) return;
-
-  const threshold = getAdaptiveNeutralThreshold();
-  let dominantKey = null;
-  let dominantScore = threshold;
-  for (const key of EXPR_KEYS) {
-    const score = basicExpr?.[key] ?? 0;
-    if (score > dominantScore) { dominantScore = score; dominantKey = key; }
-  }
-  const dominant = dominantKey
-    ? dominantKey.charAt(0).toUpperCase() + dominantKey.slice(1)
-    : 'Neutral';
+  const dominant = basicExpr?.dominant ?? 'Neutral';
 
   const values = [
     timestamp.toFixed(1),

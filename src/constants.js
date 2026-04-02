@@ -28,38 +28,44 @@ export const MAX_RENDER_DPR = typeof window !== 'undefined'
   ? (window.matchMedia('(max-width: 900px)').matches ? 1.25 : 2)
   : 2;
 
-export const EMOTION_EMA_ALPHA = 0.3;
-export const NEUTRAL_BASELINE_FRAMES = 90;  // ~3s at 30fps
-export const NEUTRAL_THRESHOLD_MIN = 0.05;
-export const NEUTRAL_THRESHOLD_MAX = 0.30;
+export const EMOTION_EMA_ALPHA = 0.22;
+export const NEUTRAL_BASELINE_FRAMES = 120;  // ~4s at 30fps
+export const NEUTRAL_THRESHOLD_MIN = 0.12;
+export const NEUTRAL_THRESHOLD_MAX = 0.42;
+export const EXPRESSION_FEATURE_FLOOR = 0.08;
+export const EXPRESSION_FEATURE_CEILING = 0.78;
+export const EXPRESSION_COVERAGE_FLOOR = 0.24;
+export const EXPRESSION_SWITCH_MARGIN = 0.08;
+export const EXPRESSION_NEUTRAL_MARGIN = 0.05;
+export const EXPRESSION_LOW_QUALITY_FLOOR = 0.32;
 
-// Sparse FACS AU–to–blendshape prototype vectors for cosine similarity.
-// weights: blendshape activations that define the emotion at full expression.
-// magnitude: precomputed L2 norm over the non-zero entries (used in _cosineSim).
+// Heuristic blendshape prototypes. Positive channels add evidence for an
+// expression; suppressors reduce confidence when a contradictory pattern is
+// present. This is intentionally conservative to avoid overcalling emotion.
 export const EMOTION_PROTOTYPES = Object.freeze({
   happiness: Object.freeze({
-    weights: Object.freeze({ mouthSmileLeft:1.0, mouthSmileRight:1.0, cheekSquintLeft:0.7, cheekSquintRight:0.7, mouthDimpleLeft:0.3, mouthDimpleRight:0.3 }),
-    magnitude: Math.hypot(1.0, 1.0, 0.7, 0.7, 0.3, 0.3),
+    positive: Object.freeze({ smile: 1.0, cheekRaise: 0.8, dimple: 0.35 }),
+    suppressors: Object.freeze({ frown: 0.8, lipPress: 0.45, browDown: 0.35, noseSneer: 0.2 }),
   }),
   sadness: Object.freeze({
-    weights: Object.freeze({ browInnerUp:1.0, mouthFrownLeft:0.8, mouthFrownRight:0.8, mouthShrugLower:0.4, eyeSquintLeft:0.3, eyeSquintRight:0.3 }),
-    magnitude: Math.hypot(1.0, 0.8, 0.8, 0.4, 0.3, 0.3),
+    positive: Object.freeze({ browInnerUp: 0.85, frown: 0.95, lowerShrug: 0.45, squint: 0.15 }),
+    suppressors: Object.freeze({ smile: 0.9, eyeWide: 0.45, jawOpen: 0.25, cheekRaise: 0.35 }),
   }),
   fear: Object.freeze({
-    weights: Object.freeze({ browInnerUp:0.9, browOuterUpLeft:0.7, browOuterUpRight:0.7, eyeWideLeft:1.0, eyeWideRight:1.0, mouthStretchLeft:0.6, mouthStretchRight:0.6, jawOpen:0.4 }),
-    magnitude: Math.hypot(0.9, 0.7, 0.7, 1.0, 1.0, 0.6, 0.6, 0.4),
+    positive: Object.freeze({ eyeWide: 0.95, browInnerUp: 0.8, browOuterUp: 0.65, lipStretch: 0.7, jawOpen: 0.35 }),
+    suppressors: Object.freeze({ smile: 0.6, lipPress: 0.65, squint: 0.55 }),
   }),
   disgust: Object.freeze({
-    weights: Object.freeze({ noseSneerLeft:1.0, noseSneerRight:1.0, browDownLeft:0.5, browDownRight:0.5, mouthUpperUpLeft:0.5, mouthUpperUpRight:0.5, mouthFrownLeft:0.3, mouthFrownRight:0.3 }),
-    magnitude: Math.hypot(1.0, 1.0, 0.5, 0.5, 0.5, 0.5, 0.3, 0.3),
+    positive: Object.freeze({ noseSneer: 1.0, upperLipRaise: 0.7, browDown: 0.5, frown: 0.3 }),
+    suppressors: Object.freeze({ smile: 0.65, jawOpen: 0.25, eyeWide: 0.2 }),
   }),
   anger: Object.freeze({
-    weights: Object.freeze({ browDownLeft:1.0, browDownRight:1.0, eyeSquintLeft:0.6, eyeSquintRight:0.6, noseSneerLeft:0.4, noseSneerRight:0.4, mouthPressLeft:0.5, mouthPressRight:0.5 }),
-    magnitude: Math.hypot(1.0, 1.0, 0.6, 0.6, 0.4, 0.4, 0.5, 0.5),
+    positive: Object.freeze({ browDown: 1.0, lipPress: 0.8, noseSneer: 0.55, squint: 0.45 }),
+    suppressors: Object.freeze({ smile: 1.0, browOuterUp: 0.55, browInnerUp: 0.35, eyeWide: 0.55, jawOpen: 0.35 }),
   }),
   surprise: Object.freeze({
-    weights: Object.freeze({ browOuterUpLeft:1.0, browOuterUpRight:1.0, browInnerUp:0.8, eyeWideLeft:0.9, eyeWideRight:0.9, jawOpen:1.0 }),
-    magnitude: Math.hypot(1.0, 1.0, 0.8, 0.9, 0.9, 1.0),
+    positive: Object.freeze({ browOuterUp: 0.95, browInnerUp: 0.65, eyeWide: 0.9, jawOpen: 0.85 }),
+    suppressors: Object.freeze({ squint: 0.6, lipPress: 0.45, frown: 0.25 }),
   }),
 });
 

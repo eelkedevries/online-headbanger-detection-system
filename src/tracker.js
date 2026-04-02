@@ -213,9 +213,10 @@ export function processFrame(result, poseResult, handResult, now, isNewResult = 
   updateGeometryUI(geometry);
 
   const blend = getBlendshapeMap(result);
+  const qualityScore = getQuality().score;
   const expressions = deriveExpressions(blend);
   updateEyesUI(expressions);
-  const basicExpr = deriveBasicExpressions(blend);
+  const basicExpr = deriveBasicExpressions(blend, qualityScore);
   updateBasicExpressionsUI(basicExpr);
   if (isNewResult) updateTalkingYawning(blend, now);
   updateBlinkCount(expressions);
@@ -286,7 +287,7 @@ export function processFrame(result, poseResult, handResult, now, isNewResult = 
     now, pose, blend, basicExpr,
     state.prevSpeed, state.currentAction,
     state.blinkClosed, state.talkingState, state.yawningState,
-    getQuality().score,
+    qualityScore,
   );
 }
 

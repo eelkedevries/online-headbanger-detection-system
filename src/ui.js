@@ -1,6 +1,5 @@
 import { MAX_BAR_ANGLE, MAX_DISTANCE_DELTA_CM, LOW_QUALITY_THRESHOLD } from './constants.js';
 import { clamp, formatAngle, formatPct01, formatSignedCm } from './utils.js';
-import { getAdaptiveNeutralThreshold } from './expressions.js';
 
 // ── Canvas / video elements ────────────────────────────────────────────────
 export const video = document.getElementById("video");
@@ -116,6 +115,7 @@ export const eyeMetricEls = {
 
 // ── Basic expressions ──────────────────────────────────────────────────────
 export const basicExprEls = {
+  neutral:   { value: document.getElementById("basicNeutralValue"),   bar: document.getElementById("basicNeutralBar")   },
   happiness: { value: document.getElementById("basicHappinessValue"), bar: document.getElementById("basicHappinessBar") },
   sadness:   { value: document.getElementById("basicSadnessValue"),   bar: document.getElementById("basicSadnessBar")   },
   fear:      { value: document.getElementById("basicFearValue"),      bar: document.getElementById("basicFearBar")      },
@@ -261,25 +261,18 @@ export function updateBasicExpressionsUI(basicExpr) {
     return;
   }
 
-  const dominantThreshold = getAdaptiveNeutralThreshold();
-  let dominantKey = null;
-  let dominantScore = dominantThreshold;
-
   for (const [key, els] of Object.entries(basicExprEls)) {
-    const score = basicExpr[key];
+    const score = basicExpr[key] ?? 0;
     const pct = Math.round(score * 100);
     els.bar.style.width = `${pct}%`;
     els.bar.parentElement.setAttribute('aria-valuenow', pct);
     if (_textUpdateDue) {
       els.value.textContent = `${pct}%`;
-      if (score > dominantScore) { dominantScore = score; dominantKey = key; }
     }
   }
 
   if (_textUpdateDue) {
-    dominantExprValue.textContent = dominantKey
-      ? dominantKey.charAt(0).toUpperCase() + dominantKey.slice(1)
-      : "Neutral";
+    dominantExprValue.textContent = basicExpr.dominant ?? "Neutral";
   }
 }
 
