@@ -1,4 +1,4 @@
-import { MAX_BAR_ANGLE, MAX_DISTANCE_DELTA_CM } from './constants.js';
+import { MAX_BAR_ANGLE, MAX_DISTANCE_DELTA_CM, LOW_QUALITY_THRESHOLD } from './constants.js';
 import { clamp, formatAngle, formatPct01, formatSignedCm } from './utils.js';
 
 // ── Canvas / video elements ────────────────────────────────────────────────
@@ -114,6 +114,19 @@ export const dominantExprValue = document.getElementById("dominantExprValue");
 // ── Talking / yawning ──────────────────────────────────────────────────────
 export const talkingStateValue = document.getElementById("talkingStateValue");
 export const yawningStateValue = document.getElementById("yawningStateValue");
+
+// ── Quality indicator ──────────────────────────────────────────────────────
+export const qualityBarFill = document.getElementById("qualityBarFill");
+export const qualityScore = document.getElementById("qualityScore");
+export const qualityHint = document.getElementById("qualityHint");
+
+// ── Panels that dim on low quality ────────────────────────────────────────
+const _dimPanels = [
+  document.getElementById("panelEyes"),
+  document.getElementById("panelExpressions"),
+  document.getElementById("panelAttention"),
+  document.getElementById("panelGeometry")
+];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Text-update throttle
@@ -265,6 +278,37 @@ export function updateAttentionUI(attention) {
   gazeHorizontalValue.textContent = horizLabel;
   gazeVerticalValue.textContent = vertLabel;
   attentionHint.textContent = `Heuristic estimate. Confidence: ${Math.round(attention.confidence * 100)}%.`;
+}
+
+// hasFace: whether a face is currently detected.
+// quality: { score, hint } from quality.js.
+// Bar updates every frame; text/hint respects the 200ms throttle.
+export function updateQualityUI(quality, hasFace) {
+  const isLow = hasFace && quality.score < LOW_QUALITY_THRESHOLD;
+
+  for (const panel of _dimPanels) {
+    if (panel) panel.classList.toggle('metric--dim', isLow);
+  }
+
+  if (!hasFace) {
+    qualityBarFill.style.width = '0%';
+    if (_textUpdateDue) {
+      qualityScore.textContent = '–';
+      qualityHint.textContent = '';
+    }
+    return;
+  }
+
+  const pct = Math.round(quality.score * 100);
+  qualityBarFill.style.width = `${pct}%`;
+  qualityBarFill.style.backgroundColor = quality.score >= 0.7
+    ? 'var(--ok)' : quality.score >= LOW_QUALITY_THRESHOLD
+    ? 'var(--warn)' : '#e03131';
+
+  if (_textUpdateDue) {
+    qualityScore.textContent = `${pct}%`;
+    qualityHint.textContent = quality.hint;
+  }
 }
 
 // Immediate — called on face-lost to clear all metrics at once.

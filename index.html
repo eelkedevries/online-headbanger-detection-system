@@ -320,6 +320,12 @@
 
     .metric {
       padding: 14px;
+      transition: opacity 0.4s;
+    }
+
+    .metric--dim {
+      opacity: 0.35;
+      pointer-events: none;
     }
 
     .metric h2,
@@ -540,7 +546,7 @@
           </div>
         </div>
 
-        <div class="metric">
+        <div class="metric" id="panelEyes">
           <h3>Eyes</h3>
           <div class="mini-row"><div class="label">Blink</div><div class="mini-track"><div id="exprBlinkBar" class="mini-fill"></div></div><div id="exprBlinkValue">0%</div></div>
           <div class="mini-row"><div class="label">Eye openness</div><div class="mini-track"><div id="exprOpenBar" class="mini-fill"></div></div><div id="exprOpenValue">0%</div></div>
@@ -550,7 +556,7 @@
           <div class="muted" style="margin-top: 8px; font-size: 12px;">Heuristic eye and brow estimates derived from face blendshapes.</div>
         </div>
 
-        <div class="metric">
+        <div class="metric" id="panelExpressions">
           <h3>Basic expressions</h3>
           <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
             <span class="muted" style="font-size: 13px;">Dominant:</span>
@@ -599,6 +605,13 @@
             <h3>Tracking</h3>
             <div class="metric-value small" id="trackingState">Waiting</div>
             <div class="muted" id="trackingHint">Start the camera to begin tracking.</div>
+            <div style="margin-top:10px; display:flex; align-items:center; gap:8px;">
+              <div style="width:80px; height:6px; background:var(--border); border-radius:3px; overflow:hidden;">
+                <div id="qualityBarFill" style="height:100%; width:0%; background:var(--ok); border-radius:3px; transition:width 0.3s, background-color 0.3s;"></div>
+              </div>
+              <span id="qualityScore" class="muted" style="font-size:12px;">–</span>
+            </div>
+            <div id="qualityHint" style="font-size:12px; margin-top:4px; color:var(--warn); min-height:1em;"></div>
           </div>
           <div class="metric">
             <h3>Current action</h3>
@@ -621,7 +634,7 @@
           <div class="muted" style="margin-top: 8px; font-size: 12px;">Talking: jaw oscillation over 1.5 s. Yawning: sustained wide jaw open &gt; 1.8 s.</div>
         </div>
 
-        <div class="metric">
+        <div class="metric" id="panelAttention">
           <h3>Attention / gaze estimate</h3>
           <div class="two-col">
             <div class="kv">
@@ -660,7 +673,7 @@
           </div>
         </div>
 
-        <div class="metric">
+        <div class="metric" id="panelGeometry">
           <h3>Face geometry</h3>
           <div class="two-col">
             <div class="kv">

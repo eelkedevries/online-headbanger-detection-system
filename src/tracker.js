@@ -4,8 +4,9 @@ import {
   talkingStateValue, yawningStateValue, trackingState, trackingHint,
   eyeMetricEls, addLog, setStatus, updateMiniMetric, updateAttentionUI,
   updateTrackingState, updatePoseUI, updateEyesUI, updateBasicExpressionsUI,
-  tickTextThrottle
+  tickTextThrottle, updateQualityUI
 } from './ui.js';
+import { updateQuality, getQuality, isQualityLow, resetQuality } from './quality.js';
 import { updateVideoDrawRect, clearOverlay, clearHeadView, resizeOverlay, resetSmoothedHeadCrop, drawFace, drawHeadView, drawPoseOverlay, drawHandOverlay } from './overlay.js';
 import { calculateGeometry, updateDistanceUI, updateGeometryUI, distanceRef } from './geometry.js';
 import { getBlendshapeMap, deriveExpressions, deriveBasicExpressions } from './expressions.js';
@@ -122,6 +123,13 @@ export function processFrame(result, poseResult, handResult, now, isNewResult = 
   const hasFace = Boolean(landmarks);
   updateTrackingState(hasFace);
 
+  if (hasFace) {
+    updateQuality(result);
+  } else {
+    resetQuality();
+  }
+  updateQualityUI(getQuality(), hasFace);
+
   if (!hasFace) {
     clearMetricsForNoFace();
     clearHeadView();
@@ -194,7 +202,7 @@ export function processFrame(result, poseResult, handResult, now, isNewResult = 
         rollSignal: pose.roll
       });
       pruneHistory(now);
-      updateMotionState(pose, vel, speed, accel, dtMs, now);
+      if (!isQualityLow()) updateMotionState(pose, vel, speed, accel, dtMs, now);
       state.prevSpeed = speed;
     } else {
       state.history.push({

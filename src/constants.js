@@ -21,6 +21,7 @@ export const TALKING_RANGE_THRESHOLD = 0.18;
 export const TALKING_MIN_MEAN = 0.04;
 export const YAWN_OPEN_THRESHOLD = 0.52;
 export const YAWN_SUSTAINED_MS = 1800;
+export const LOW_QUALITY_THRESHOLD = 0.5;
 export const MAX_RENDER_DPR = typeof window !== 'undefined'
   ? (window.matchMedia('(max-width: 900px)').matches ? 1.25 : 2)
   : 2;
