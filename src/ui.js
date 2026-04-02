@@ -118,6 +118,9 @@ export const dominantExprValue = document.getElementById("dominantExprValue");
 export const talkingStateValue = document.getElementById("talkingStateValue");
 export const yawningStateValue = document.getElementById("yawningStateValue");
 
+// ── Resolution display ─────────────────────────────────────────────────────
+export const resolutionValue = document.getElementById("resolutionValue");
+
 // ── Quality indicator ──────────────────────────────────────────────────────
 export const qualityBarFill = document.getElementById("qualityBarFill");
 export const qualityScore = document.getElementById("qualityScore");

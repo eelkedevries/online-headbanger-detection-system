@@ -7,7 +7,7 @@ import {
   nodFreqValue, shakeFreqValue, tiltFreqValue, headbangFreqValue,
   eventNodCount, eventShakeCount, eventTiltLeftCount, eventTiltRightCount, eventHeadbangCount,
   blinkCountValue, talkingStateValue, yawningStateValue, currentActionEl,
-  addLog, setStatus, resetPoseUI
+  addLog, setStatus, resetPoseUI, resolutionValue
 } from './ui.js';
 import {
   resizeHeadView, clearHeadView,
@@ -20,7 +20,7 @@ import {
   trackingVars, state,
   logRuntimeError, initInferenceWorker, resetCachedTaskResults,
   renderLoop, stopFrameScheduling, releaseCameraStream, clearMetricsForNoFace,
-  loadHandModel, loadPoseModel
+  loadHandModel, loadPoseModel, getCurrentFps
 } from './tracker.js';
 import { describeCameraError } from './utils.js';
 import { initRecorder } from './recorder.js';
@@ -85,6 +85,82 @@ function resetDerivedState() {
   yawningStateValue.textContent = "–";
 }
 
+// ── Resolution management ──────────────────────────────────────────────────
+const _RES_DESKTOP = [
+  { width: 640, height: 480 },
+  { width: 1280, height: 720 },
+  { width: 1920, height: 1080 },
+];
+const _RES_MOBILE = [
+  { width: 640, height: 480 },
+  { width: 960, height: 540 },
+];
+const _RES_LS_KEY = 'headbanger_resolution_tier';
+const _RES_UPGRADE_FRAMES = 60;
+const _RES_DROP_FPS = 15;
+const _RES_DROP_MS = 3000;
+
+const _res = {
+  tiers: _RES_DESKTOP,
+  tierIdx: 0,
+  mobile: false,
+  seqAtStart: 0,
+  upgradeChecked: false,
+  lowFpsSince: null,
+  intervalId: null,
+};
+
+function _resUpdateUI() {
+  resolutionValue.textContent = `${video.videoWidth || _res.tiers[_res.tierIdx].width}×${video.videoHeight || _res.tiers[_res.tierIdx].height}`;
+}
+
+async function _resApplyTier(idx) {
+  if (!trackingVars.mediaStream) return;
+  const tier = _res.tiers[idx];
+  const tracks = trackingVars.mediaStream.getVideoTracks();
+  if (!tracks.length) return;
+  try {
+    await tracks[0].applyConstraints({ width: { ideal: tier.width }, height: { ideal: tier.height } });
+    _res.tierIdx = idx;
+    localStorage.setItem(_RES_LS_KEY, String(idx));
+    _resUpdateUI();
+    addLog(`Resolution changed to ${video.videoWidth}×${video.videoHeight} (tier ${idx}).`);
+  } catch (err) {
+    addLog(`Resolution change failed: ${err?.message || String(err)}`, 'warn');
+  }
+}
+
+function _resCheck() {
+  if (!trackingVars.mediaStream) return;
+  const now = performance.now();
+  const fps = getCurrentFps();
+  const targetFps = _res.mobile ? 20 : 30;
+  const framesElapsed = state.currentResultSeq - _res.seqAtStart;
+
+  // One-time upgrade after UPGRADE_FRAMES frames, if FPS is at or above target
+  if (!_res.upgradeChecked && framesElapsed >= _RES_UPGRADE_FRAMES) {
+    _res.upgradeChecked = true;
+    if (fps >= targetFps && _res.tierIdx < _res.tiers.length - 1) {
+      _resApplyTier(_res.tierIdx + 1);
+      return;
+    }
+  }
+
+  // Ongoing downgrade if FPS stays below 15 for 3 s
+  if (fps > 0 && fps < _RES_DROP_FPS) {
+    if (_res.lowFpsSince === null) {
+      _res.lowFpsSince = now;
+    } else if (now - _res.lowFpsSince >= _RES_DROP_MS) {
+      _res.lowFpsSince = null;
+      if (_res.tierIdx > 0) {
+        _resApplyTier(_res.tierIdx - 1);
+      }
+    }
+  } else {
+    _res.lowFpsSince = null;
+  }
+}
+
 // ── Camera start ───────────────────────────────────────────────────────────
 async function startCamera() {
   if (!state.modelsReady) {
@@ -109,12 +185,17 @@ async function startCamera() {
     setStatus("Requesting camera access…");
     addLog("Requesting camera access…");
     const mobile = window.matchMedia("(max-width: 900px)").matches;
+    _res.mobile = mobile;
+    _res.tiers = mobile ? _RES_MOBILE : _RES_DESKTOP;
+    const savedIdx = parseInt(localStorage.getItem(_RES_LS_KEY) ?? '0', 10);
+    _res.tierIdx = (Number.isFinite(savedIdx) && savedIdx >= 0 && savedIdx < _res.tiers.length) ? savedIdx : 0;
+    const startTier = _res.tiers[_res.tierIdx];
     const constraints = {
       audio: false,
       video: {
         facingMode: "user",
-        width: { ideal: mobile ? 960 : 1280 },
-        height: { ideal: mobile ? 540 : 720 }
+        width: { ideal: startTier.width },
+        height: { ideal: startTier.height }
       }
     };
     trackingVars.desiredInferenceIntervalMs = mobile ? 50 : 33;
@@ -124,6 +205,11 @@ async function startCamera() {
     video.srcObject = trackingVars.mediaStream;
     await video.play();
     resetCachedTaskResults();
+    _res.seqAtStart = state.currentResultSeq;
+    _res.upgradeChecked = false;
+    _res.lowFpsSince = null;
+    clearInterval(_res.intervalId);
+    _res.intervalId = setInterval(_resCheck, 500);
     state.fpsHistory.clear();
     fpsValue.textContent = "0";
     state.lastInferenceTimestamp = -Infinity;
@@ -133,6 +219,7 @@ async function startCamera() {
     stopBtn.disabled = false;
     calibrateBtn.disabled = false;
     distanceRefBtn.disabled = false;
+    _resUpdateUI();
     addLog(`Camera stream started (${video.videoWidth || "?"}×${video.videoHeight || "?"}).`);
     setStatus("Camera started. Look straight at the camera and click 'Set neutral pose'. Use 'Set reference distance' if you want an approximate centimetre estimate.", "ok");
   } catch (error) {
@@ -157,6 +244,8 @@ async function startCamera() {
 
 // ── Camera stop ────────────────────────────────────────────────────────────
 function stopCamera() {
+  clearInterval(_res.intervalId);
+  _res.intervalId = null;
   releaseCameraStream();
   if (state.isMoving) finalizeBout(performance.now());
   clearHeadView();
@@ -169,6 +258,7 @@ function stopCamera() {
   trackingHint.textContent = "Camera stream is off.";
   state.fpsHistory.clear();
   fpsValue.textContent = "0";
+  resolutionValue.textContent = "–";
   startBtn.disabled = false;
   stopBtn.disabled = true;
   calibrateBtn.disabled = true;
@@ -260,6 +350,7 @@ video.addEventListener("loadedmetadata", () => {
 });
 video.addEventListener("resize", () => {
   addLog(`Video resized (${video.videoWidth || "?"}×${video.videoHeight || "?"}).`);
+  if (trackingVars.mediaStream) _resUpdateUI();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {

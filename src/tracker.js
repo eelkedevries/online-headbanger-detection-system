@@ -82,6 +82,14 @@ export function logRuntimeError(message) {
 }
 
 // ── FPS counter ────────────────────────────────────────────────────────────
+export function getCurrentFps() {
+  const h = state.fpsHistory;
+  if (h.length < 2) return 0;
+  const elapsed = h.last() - h.first();
+  if (elapsed <= 0) return 0;
+  return ((h.length - 1) * 1000) / elapsed;
+}
+
 export function updateFps(now = performance.now()) {
   state.fpsHistory.push(now);
 
