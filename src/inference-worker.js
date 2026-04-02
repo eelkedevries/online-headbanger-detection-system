@@ -1,3 +1,9 @@
+// @mediapipe/tasks-vision internally calls self.import() to load WASM in workers;
+// browsers don't expose this, so polyfill it with native dynamic import.
+if (typeof self.import === 'undefined') {
+  self.import = (url) => import(url);
+}
+
 import { FaceLandmarker, HandLandmarker, PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { MODEL_URL, HAND_MODEL_URL, POSE_MODEL_URL, WASM_URL, HAND_UPDATE_INTERVAL_MS, POSE_UPDATE_INTERVAL_MS } from './constants.js';
 

@@ -4,5 +4,8 @@ export default defineConfig({
   base: './',
   build: {
     outDir: 'dist'
+  },
+  worker: {
+    format: 'es'
   }
 });
