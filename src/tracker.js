@@ -13,7 +13,7 @@ import { getBlendshapeMap, deriveExpressions, deriveBasicExpressions, resetExpre
 import { estimateAttention } from './attention.js';
 import { estimatePose, updateMotionState, updateBlinkCount, updateTalkingYawning, finalizeBout, pruneHistory } from './motion.js';
 import { updateAvatar3D } from './avatar.js';
-import { formatDurationMs } from './utils.js';
+import { formatDurationMs, RingBuffer } from './utils.js';
 
 // ── Tracking loop variables ────────────────────────────────────────────────
 export const trackingVars = {
@@ -34,12 +34,12 @@ export const state = {
   movingTimeMs: 0,
   stillTimeMs: 0,
   maxHeadSpeed: 0,
-  history: [],
+  history: new RingBuffer(512),
   leftYawMotion: 0,
   rightYawMotion: 0,
   isMoving: false,
   boutStartTime: null,
-  boutDurationsMs: [],
+  boutDurationsMs: new RingBuffer(500),
   boutAxisMotion: { yaw: 0, pitch: 0, roll: 0 },
   boutRollNet: 0,
   boutPeakSpeed: 0,
@@ -48,7 +48,7 @@ export const state = {
   blinkCount: 0,
   blinkClosed: false,
   sessionStartTime: null,
-  fpsHistory: [],
+  fpsHistory: new RingBuffer(128),
   lastRuntimeError: "",
   lastRuntimeErrorTime: -Infinity,
   lastHandLabelTime: -Infinity,
@@ -57,7 +57,7 @@ export const state = {
   cachedPoseResult: null,
   lastInferenceTimestamp: -Infinity,
   loggedFirstFrame: false,
-  jawHistory: [],
+  jawHistory: new RingBuffer(128),
   talkingState: false,
   yawningState: false,
   yawnThresholdStartTime: null,
@@ -80,12 +80,12 @@ export function logRuntimeError(message) {
 export function updateFps(now = performance.now()) {
   state.fpsHistory.push(now);
 
-  while (state.fpsHistory.length > 0 && now - state.fpsHistory[0] > 1500) {
+  while (state.fpsHistory.length > 0 && now - state.fpsHistory.first() > 1500) {
     state.fpsHistory.shift();
   }
 
   if (state.fpsHistory.length >= 2) {
-    const elapsed = state.fpsHistory[state.fpsHistory.length - 1] - state.fpsHistory[0];
+    const elapsed = state.fpsHistory.last() - state.fpsHistory.first();
     if (elapsed > 0) {
       const fps = ((state.fpsHistory.length - 1) * 1000) / elapsed;
       fpsValue.textContent = String(Math.round(fps));

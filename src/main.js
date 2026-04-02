@@ -31,12 +31,12 @@ function resetDerivedState() {
   state.movingTimeMs = 0;
   state.stillTimeMs = 0;
   state.maxHeadSpeed = 0;
-  state.history = [];
+  state.history.clear();
   state.leftYawMotion = 0;
   state.rightYawMotion = 0;
   state.isMoving = false;
   state.boutStartTime = null;
-  state.boutDurationsMs = [];
+  state.boutDurationsMs.clear();
   state.boutAxisMotion = { yaw: 0, pitch: 0, roll: 0 };
   state.boutRollNet = 0;
   state.boutPeakSpeed = 0;
@@ -45,7 +45,7 @@ function resetDerivedState() {
   state.blinkCount = 0;
   state.blinkClosed = false;
   state.sessionStartTime = null;
-  state.jawHistory = [];
+  state.jawHistory.clear();
   state.talkingState = false;
   state.yawningState = false;
   state.yawnThresholdStartTime = null;
@@ -121,7 +121,7 @@ async function startCamera() {
     video.srcObject = trackingVars.mediaStream;
     await video.play();
     resetCachedTaskResults();
-    state.fpsHistory = [];
+    state.fpsHistory.clear();
     fpsValue.textContent = "0";
     state.lastInferenceTimestamp = -Infinity;
     renderLoop();
@@ -164,7 +164,7 @@ function stopCamera() {
   clearMetricsForNoFace();
   trackingState.textContent = "Stopped";
   trackingHint.textContent = "Camera stream is off.";
-  state.fpsHistory = [];
+  state.fpsHistory.clear();
   fpsValue.textContent = "0";
   startBtn.disabled = false;
   stopBtn.disabled = true;

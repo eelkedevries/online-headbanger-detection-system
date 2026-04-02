@@ -106,11 +106,13 @@ export function estimatePose(result) {
 // ── History helpers ────────────────────────────────────────────────────────
 export function getWindowHistory(ms = HISTORY_WINDOW_MS) {
   const now = performance.now();
-  return state.history.filter(item => now - item.t <= ms);
+  return state.history.toArray().filter(item => now - item.t <= ms);
 }
 
 export function pruneHistory(now, ms = HISTORY_WINDOW_MS) {
-  state.history = state.history.filter(item => now - item.t <= ms);
+  while (state.history.length > 0 && now - state.history.first().t > ms) {
+    state.history.shift();
+  }
 }
 
 // ── Frequency estimation ───────────────────────────────────────────────────
@@ -203,7 +205,7 @@ export function updateMotionState(pose, vel, speed, accel, dtMs, now) {
     movingTimeValue.textContent = `${(state.movingTimeMs / 1000).toFixed(1)} s`;
     stillTimeValue.textContent = `${(state.stillTimeMs / 1000).toFixed(1)} s`;
     movementBoutsValue.textContent = `${state.boutDurationsMs.length + (state.isMoving ? 1 : 0)}`;
-    avgBoutValue.textContent = `${(mean(state.boutDurationsMs) / 1000 || 0).toFixed(1)} s`;
+    avgBoutValue.textContent = `${(mean(state.boutDurationsMs.toArray()) / 1000 || 0).toFixed(1)} s`;
     movementLoadValue.textContent = `${state.totalMovement.toFixed(1)} °`;
     const maxYawSide = Math.max(state.leftYawMotion, state.rightYawMotion);
     yawBalanceValue.textContent = maxYawSide > 0 ? `${(100 * Math.min(state.leftYawMotion, state.rightYawMotion) / maxYawSide).toFixed(0)}%` : "–";
@@ -238,8 +240,8 @@ export function updateTalkingYawning(blend, now) {
 
   // Maintain rolling jaw history
   state.jawHistory.push({ t: now, v: jawOpen });
-  if (state.jawHistory.length > 1 && state.jawHistory[0].t < now - JAW_HISTORY_MS) {
-    state.jawHistory = state.jawHistory.filter(item => now - item.t <= JAW_HISTORY_MS);
+  while (state.jawHistory.length > 0 && now - state.jawHistory.first().t > JAW_HISTORY_MS) {
+    state.jawHistory.shift();
   }
 
   // Yawning: sustained jaw open above threshold
@@ -254,7 +256,7 @@ export function updateTalkingYawning(blend, now) {
   // Talking: rapid jaw oscillation (range over 1.5 s window exceeds threshold)
   // Suppressed while yawning to avoid false positives as mouth opens/closes.
   if (!state.yawningState) {
-    const recent = state.jawHistory.filter(item => now - item.t <= 1500);
+    const recent = state.jawHistory.toArray().filter(item => now - item.t <= 1500);
     if (recent.length >= 4) {
       const vals = recent.map(item => item.v);
       const range = Math.max(...vals) - Math.min(...vals);
