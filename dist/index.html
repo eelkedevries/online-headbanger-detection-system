@@ -98,16 +98,6 @@
       letter-spacing: 0.01em;
     }
 
-    .hidden-feed-stage {
-      position: absolute;
-      left: -10000px;
-      top: -10000px;
-      width: min(42vw, 480px);
-      aspect-ratio: 1 / 1;
-      visibility: hidden;
-      pointer-events: none;
-      overflow: hidden;
-    }
 
     .head-pose-details {
       display: none;
@@ -185,23 +175,14 @@
       border: 1px solid var(--border);
     }
 
-    video, #overlay {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    video {
-      object-fit: contain;
-      background: #05070b;
-      transform: scaleX(-1);
-    }
-
-    #overlay {
-      pointer-events: none;
-      transform: scaleX(-1);
+    #video {
+      position: fixed;
+      left: -9999px;
+      top: 0;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      opacity: 0;
     }
 
     .head-stage {
@@ -475,7 +456,7 @@
       .visual-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-BVZkPyNT.js"></script>
+  <script type="module" crossorigin src="./assets/index-Bbfh0aOf.js"></script>
 </head>
 <body>
   <main class="app">
@@ -491,7 +472,6 @@
           <button id="stopBtn" type="button" disabled>Stop camera</button>
           <button id="calibrateBtn" type="button" disabled>Set neutral pose</button>
           <button id="distanceRefBtn" type="button" disabled>Set reference distance</button>
-          <button id="meshIdsBtn" type="button">IDs: off</button>
         </div>
         <p id="status" class="status">Loading MediaPipe model…</p>
         <div class="visual-grid">
@@ -508,12 +488,7 @@
           </div>
         </div>
 
-        <div class="hidden-feed-stage">
-          <div class="stage">
-            <video id="video" playsinline autoplay muted></video>
-            <canvas id="overlay"></canvas>
-          </div>
-        </div>
+        <video id="video" playsinline autoplay muted></video>
 
         <p class="footnote">The face close-up is an automatically cropped head-and-shoulders view derived from the full camera frame, and it keeps the detected face centred as far as the full frame allows. Distance remains approximate because this is monocular webcam video.</p>
       </section>
