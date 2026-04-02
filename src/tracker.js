@@ -14,6 +14,7 @@ import { estimateAttention } from './attention.js';
 import { estimatePose, updateMotionState, updateBlinkCount, updateTalkingYawning, finalizeBout, pruneHistory } from './motion.js';
 import { updateAvatar3D } from './avatar.js';
 import { formatDurationMs, RingBuffer } from './utils.js';
+import { recordFrame } from './recorder.js';
 
 // ── Tracking loop variables ────────────────────────────────────────────────
 export const trackingVars = {
@@ -154,7 +155,8 @@ export function processFrame(result, poseResult, handResult, now, isNewResult = 
   const blend = getBlendshapeMap(result);
   const expressions = deriveExpressions(blend);
   updateEyesUI(expressions);
-  updateBasicExpressionsUI(deriveBasicExpressions(blend));
+  const basicExpr = deriveBasicExpressions(blend);
+  updateBasicExpressionsUI(basicExpr);
   if (isNewResult) updateTalkingYawning(blend, now);
   updateBlinkCount(expressions);
 
@@ -219,6 +221,13 @@ export function processFrame(result, poseResult, handResult, now, isNewResult = 
     state.prevPose = { ...pose };
     state.prevTime = now;
   }
+
+  recordFrame(
+    now, pose, blend, basicExpr,
+    state.prevSpeed, state.currentAction,
+    state.blinkClosed, state.talkingState, state.yawningState,
+    getQuality().score,
+  );
 }
 
 // ── Task result cache reset ────────────────────────────────────────────────

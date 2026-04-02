@@ -23,6 +23,7 @@ import {
   loadHandModel, loadPoseModel
 } from './tracker.js';
 import { describeCameraError } from './utils.js';
+import { initRecorder } from './recorder.js';
 
 // ── Derived state reset ────────────────────────────────────────────────────
 function resetDerivedState() {
@@ -215,6 +216,7 @@ function setReferenceDistance() {
 async function init() {
   try {
     addLog("Booting page.");
+    initRecorder();
     addLog("Initialising 3D preview…");
     initAvatar3D();
     addLog("3D preview initialised.");
