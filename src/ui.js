@@ -1,5 +1,6 @@
 import { MAX_BAR_ANGLE, MAX_DISTANCE_DELTA_CM, LOW_QUALITY_THRESHOLD } from './constants.js';
 import { clamp, formatAngle, formatPct01, formatSignedCm } from './utils.js';
+import { getAdaptiveNeutralThreshold } from './expressions.js';
 
 // ── Canvas / video elements ────────────────────────────────────────────────
 export const video = document.getElementById("video");
@@ -236,9 +237,9 @@ export function updateBasicExpressionsUI(basicExpr) {
     return;
   }
 
-  const DOMINANT_THRESHOLD = 0.14;
+  const dominantThreshold = getAdaptiveNeutralThreshold();
   let dominantKey = null;
-  let dominantScore = DOMINANT_THRESHOLD;
+  let dominantScore = dominantThreshold;
 
   for (const [key, els] of Object.entries(basicExprEls)) {
     const score = basicExpr[key];

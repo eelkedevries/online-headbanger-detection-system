@@ -10,6 +10,12 @@ export function mean(values) {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 }
 
+export function stdDev(values, precomputedMean) {
+  if (!values.length) return 0;
+  const m = precomputedMean !== undefined ? precomputedMean : mean(values);
+  return Math.sqrt(values.reduce((s, v) => s + (v - m) * (v - m), 0) / values.length);
+}
+
 export function dist(a, b) {
   const dx = a.x - b.x;
   const dy = a.y - b.y;

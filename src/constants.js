@@ -26,6 +26,41 @@ export const MAX_RENDER_DPR = typeof window !== 'undefined'
   ? (window.matchMedia('(max-width: 900px)').matches ? 1.25 : 2)
   : 2;
 
+export const EMOTION_EMA_ALPHA = 0.3;
+export const NEUTRAL_BASELINE_FRAMES = 90;  // ~3s at 30fps
+export const NEUTRAL_THRESHOLD_MIN = 0.05;
+export const NEUTRAL_THRESHOLD_MAX = 0.30;
+
+// Sparse FACS AU–to–blendshape prototype vectors for cosine similarity.
+// weights: blendshape activations that define the emotion at full expression.
+// magnitude: precomputed L2 norm over the non-zero entries (used in _cosineSim).
+export const EMOTION_PROTOTYPES = Object.freeze({
+  happiness: Object.freeze({
+    weights: Object.freeze({ mouthSmileLeft:1.0, mouthSmileRight:1.0, cheekSquintLeft:0.7, cheekSquintRight:0.7, mouthDimpleLeft:0.3, mouthDimpleRight:0.3 }),
+    magnitude: Math.hypot(1.0, 1.0, 0.7, 0.7, 0.3, 0.3),
+  }),
+  sadness: Object.freeze({
+    weights: Object.freeze({ browInnerUp:1.0, mouthFrownLeft:0.8, mouthFrownRight:0.8, mouthShrugLower:0.4, eyeSquintLeft:0.3, eyeSquintRight:0.3 }),
+    magnitude: Math.hypot(1.0, 0.8, 0.8, 0.4, 0.3, 0.3),
+  }),
+  fear: Object.freeze({
+    weights: Object.freeze({ browInnerUp:0.9, browOuterUpLeft:0.7, browOuterUpRight:0.7, eyeWideLeft:1.0, eyeWideRight:1.0, mouthStretchLeft:0.6, mouthStretchRight:0.6, jawOpen:0.4 }),
+    magnitude: Math.hypot(0.9, 0.7, 0.7, 1.0, 1.0, 0.6, 0.6, 0.4),
+  }),
+  disgust: Object.freeze({
+    weights: Object.freeze({ noseSneerLeft:1.0, noseSneerRight:1.0, browDownLeft:0.5, browDownRight:0.5, mouthUpperUpLeft:0.5, mouthUpperUpRight:0.5, mouthFrownLeft:0.3, mouthFrownRight:0.3 }),
+    magnitude: Math.hypot(1.0, 1.0, 0.5, 0.5, 0.5, 0.5, 0.3, 0.3),
+  }),
+  anger: Object.freeze({
+    weights: Object.freeze({ browDownLeft:1.0, browDownRight:1.0, eyeSquintLeft:0.6, eyeSquintRight:0.6, noseSneerLeft:0.4, noseSneerRight:0.4, mouthPressLeft:0.5, mouthPressRight:0.5 }),
+    magnitude: Math.hypot(1.0, 1.0, 0.6, 0.6, 0.4, 0.4, 0.5, 0.5),
+  }),
+  surprise: Object.freeze({
+    weights: Object.freeze({ browOuterUpLeft:1.0, browOuterUpRight:1.0, browInnerUp:0.8, eyeWideLeft:0.9, eyeWideRight:0.9, jawOpen:1.0 }),
+    magnitude: Math.hypot(1.0, 1.0, 0.8, 0.9, 0.9, 1.0),
+  }),
+});
+
 export const BODY_CONNECTIONS = [
   [11, 12],
   [11, 13], [13, 15],

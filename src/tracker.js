@@ -9,7 +9,7 @@ import {
 import { updateQuality, getQuality, isQualityLow, resetQuality } from './quality.js';
 import { updateVideoDrawRect, clearOverlay, clearHeadView, resizeOverlay, resetSmoothedHeadCrop, drawFace, drawHeadView, drawPoseOverlay, drawHandOverlay } from './overlay.js';
 import { calculateGeometry, updateDistanceUI, updateGeometryUI, distanceRef } from './geometry.js';
-import { getBlendshapeMap, deriveExpressions, deriveBasicExpressions } from './expressions.js';
+import { getBlendshapeMap, deriveExpressions, deriveBasicExpressions, resetExpressionState } from './expressions.js';
 import { estimateAttention } from './attention.js';
 import { estimatePose, updateMotionState, updateBlinkCount, updateTalkingYawning, finalizeBout, pruneHistory } from './motion.js';
 import { updateAvatar3D } from './avatar.js';
@@ -100,6 +100,7 @@ export function updateFps(now = performance.now()) {
 export function clearMetricsForNoFace() {
   updateTrackingState(false);
   resetSmoothedHeadCrop();
+  resetExpressionState();
   currentActionEl.textContent = "Still";
   updateDistanceUI(null);
   updateGeometryUI(null);

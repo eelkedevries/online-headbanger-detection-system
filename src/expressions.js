@@ -1,4 +1,11 @@
-import { mean, clamp } from './utils.js';
+import { clamp, mean, stdDev } from './utils.js';
+import {
+  EMOTION_EMA_ALPHA,
+  NEUTRAL_BASELINE_FRAMES,
+  NEUTRAL_THRESHOLD_MIN,
+  NEUTRAL_THRESHOLD_MAX,
+  EMOTION_PROTOTYPES,
+} from './constants.js';
 
 export function getBlendshapeMap(result) {
   const categories = result?.faceBlendshapes?.[0]?.categories ?? [];
@@ -20,66 +27,84 @@ export function deriveExpressions(blend) {
   return { blink, eyeOpen, browRaise, browFurrow, smile, lipPress, lipStretch, cheekPuff, jawOpen, noseFlare, squint };
 }
 
+// ── Module state for EMA and adaptive neutral threshold ────────────────────
+let _emaScores = null;
+const _neutralBuffer = new Float32Array(NEUTRAL_BASELINE_FRAMES);
+let _neutralBufferIdx = 0;
+let _neutralBufferCount = 0;
+
+// Focused cosine similarity: projects onto the prototype's non-zero subspace.
+// Ignores unrelated blendshapes so eye-gaze noise etc. doesn't dilute scores.
+function _cosineSim(blend, proto) {
+  let dot = 0;
+  let liveMagSq = 0;
+  for (const [name, protoVal] of Object.entries(proto.weights)) {
+    const v = blend[name] ?? 0;
+    dot += v * protoVal;
+    liveMagSq += v * v;
+  }
+  const liveMag = Math.sqrt(liveMagSq);
+  if (liveMag === 0 || proto.magnitude === 0) return 0;
+  return dot / (liveMag * proto.magnitude);
+}
+
 export function deriveBasicExpressions(blend) {
-  const g = (name) => blend[name] ?? 0;
+  const rawH  = _cosineSim(blend, EMOTION_PROTOTYPES.happiness);
+  const rawSa = _cosineSim(blend, EMOTION_PROTOTYPES.sadness);
+  const rawF  = _cosineSim(blend, EMOTION_PROTOTYPES.fear);
+  const rawD  = _cosineSim(blend, EMOTION_PROTOTYPES.disgust);
+  const rawA  = _cosineSim(blend, EMOTION_PROTOTYPES.anger);
+  const rawSu = _cosineSim(blend, EMOTION_PROTOTYPES.surprise);
 
-  // Happiness: bilateral smile + cheek raise (Duchenne marker)
-  const happiness = (
-    g("mouthSmileLeft") * 0.40 + g("mouthSmileRight") * 0.40 +
-    g("cheekSquintLeft") * 0.28 + g("cheekSquintRight") * 0.28
-  ) / 1.36;
+  if (_emaScores === null) {
+    _emaScores = { happiness: rawH, sadness: rawSa, fear: rawF, disgust: rawD, anger: rawA, surprise: rawSu };
+  } else {
+    const a = EMOTION_EMA_ALPHA;
+    const b = 1 - a;
+    _emaScores.happiness = a * rawH  + b * _emaScores.happiness;
+    _emaScores.sadness   = a * rawSa + b * _emaScores.sadness;
+    _emaScores.fear      = a * rawF  + b * _emaScores.fear;
+    _emaScores.disgust   = a * rawD  + b * _emaScores.disgust;
+    _emaScores.anger     = a * rawA  + b * _emaScores.anger;
+    _emaScores.surprise  = a * rawSu + b * _emaScores.surprise;
+  }
 
-  // Sadness: inner-brow oblique raise + mouth corners down + lip shrug
-  const sadness = (
-    g("browInnerUp") * 0.38 + g("mouthFrownLeft") * 0.38 +
-    g("mouthFrownRight") * 0.38 + g("mouthShrugLower") * 0.12
-  ) / 1.26;
+  // Track peak activation per frame for adaptive neutral threshold
+  const frameMax = Math.max(
+    _emaScores.happiness, _emaScores.sadness, _emaScores.fear,
+    _emaScores.disgust, _emaScores.anger, _emaScores.surprise,
+  );
+  _neutralBuffer[_neutralBufferIdx] = frameMax;
+  _neutralBufferIdx = (_neutralBufferIdx + 1) % NEUTRAL_BASELINE_FRAMES;
+  if (_neutralBufferCount < NEUTRAL_BASELINE_FRAMES) _neutralBufferCount++;
 
-  // Fear: all brows raised + wide eyes + mouth-corner stretch + jaw drop
-  const fear = (
-    g("browInnerUp") * 0.28 + g("browOuterUpLeft") * 0.20 + g("browOuterUpRight") * 0.20 +
-    g("eyeWideLeft") * 0.38 + g("eyeWideRight") * 0.38 +
-    g("mouthStretchLeft") * 0.18 + g("mouthStretchRight") * 0.18 +
-    g("jawOpen") * 0.12
-  ) / 1.92;
-
-  // Disgust: nose wrinkle (sneer) + brow lower + upper-lip raise + mouth corners down
-  const disgust = (
-    g("noseSneerLeft") * 0.42 + g("noseSneerRight") * 0.42 +
-    g("browDownLeft") * 0.18 + g("browDownRight") * 0.18 +
-    g("mouthUpperUpLeft") * 0.14 + g("mouthUpperUpRight") * 0.14 +
-    g("mouthFrownLeft") * 0.10 + g("mouthFrownRight") * 0.10
-  ) / 1.68;
-
-  // Anger: brow lowering + eye squint + nose + lip press
-  const anger = (
-    g("browDownLeft") * 0.38 + g("browDownRight") * 0.38 +
-    g("eyeSquintLeft") * 0.22 + g("eyeSquintRight") * 0.22 +
-    g("noseSneerLeft") * 0.14 + g("noseSneerRight") * 0.14 +
-    g("mouthPressLeft") * 0.14 + g("mouthPressRight") * 0.14
-  ) / 1.76;
-
-  // Surprise: all brows raised + wide eyes + jaw drop
-  const surprise = (
-    g("browOuterUpLeft") * 0.28 + g("browOuterUpRight") * 0.28 +
-    g("browInnerUp") * 0.22 +
-    g("eyeWideLeft") * 0.28 + g("eyeWideRight") * 0.28 +
-    g("jawOpen") * 0.38
-  ) / 1.72;
-
-  // Contempt: unilateral smile asymmetry suppressed when both sides are high (happiness)
-  const smileL = g("mouthSmileLeft");
-  const smileR = g("mouthSmileRight");
+  // Contempt: unchanged asymmetry formula (unilateral smile suppressed when bilateral)
+  const smileL = blend.mouthSmileLeft  ?? 0;
+  const smileR = blend.mouthSmileRight ?? 0;
   const smileAsymmetry = Math.abs(smileL - smileR);
   const contempt = clamp(smileAsymmetry * 1.6 * clamp(1 - (smileL + smileR) * 0.75, 0, 1), 0, 1);
 
   return {
-    happiness: clamp(happiness, 0, 1),
-    sadness:   clamp(sadness,   0, 1),
-    fear:      clamp(fear,      0, 1),
-    disgust:   clamp(disgust,   0, 1),
-    anger:     clamp(anger,     0, 1),
-    surprise:  clamp(surprise,  0, 1),
-    contempt
+    happiness: clamp(_emaScores.happiness, 0, 1),
+    sadness:   clamp(_emaScores.sadness,   0, 1),
+    fear:      clamp(_emaScores.fear,      0, 1),
+    disgust:   clamp(_emaScores.disgust,   0, 1),
+    anger:     clamp(_emaScores.anger,     0, 1),
+    surprise:  clamp(_emaScores.surprise,  0, 1),
+    contempt,
   };
+}
+
+export function getAdaptiveNeutralThreshold() {
+  if (_neutralBufferCount === 0) return NEUTRAL_THRESHOLD_MIN;
+  const filled = _neutralBuffer.subarray(0, _neutralBufferCount);
+  const m = mean(filled);
+  return clamp(m + stdDev(filled, m), NEUTRAL_THRESHOLD_MIN, NEUTRAL_THRESHOLD_MAX);
+}
+
+export function resetExpressionState() {
+  _emaScores = null;
+  _neutralBufferIdx = 0;
+  _neutralBufferCount = 0;
+  // Float32Array already zeroed; _neutralBufferCount sentinel prevents stale reads
 }
