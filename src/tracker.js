@@ -62,6 +62,10 @@ export const state = {
   yawningState: false,
   yawnThresholdStartTime: null,
   modelsReady: false,
+  handEnabled: false,
+  poseEnabled: false,
+  handModelLoaded: false,
+  poseModelLoaded: false,
   currentResultSeq: 0,
   lastRenderedResultSeq: 0
 };
@@ -232,6 +236,8 @@ export function resetCachedTaskResults() {
 }
 
 // ── Worker initialisation ──────────────────────────────────────────────────
+const _modelReadyCallbacks = new Map(); // 'hand'|'pose' → { subscribers: [{resolve,reject}] }
+
 export function initInferenceWorker({ onReady, onError }) {
   const worker = new Worker(new URL('./inference-worker.js', import.meta.url), { type: 'module' });
   trackingVars.worker = worker;
@@ -247,10 +253,20 @@ export function initInferenceWorker({ onReady, onError }) {
       logRuntimeError(`Inference error: ${msg.message}`);
     } else if (msg.type === 'result') {
       state.cachedFaceResult = msg.face;
-      if (msg.hand !== null) state.cachedHandResult = msg.hand;
-      if (msg.pose !== null) state.cachedPoseResult = msg.pose;
+      if (msg.hand !== null && state.handEnabled) state.cachedHandResult = msg.hand;
+      if (msg.pose !== null && state.poseEnabled) state.cachedPoseResult = msg.pose;
       state.currentResultSeq++;
       updateFps(msg.timestamp);
+    } else if (msg.type === 'modelReady') {
+      if (msg.model === 'hand') state.handModelLoaded = true;
+      if (msg.model === 'pose') state.poseModelLoaded = true;
+      addLog(`${msg.model === 'hand' ? 'Hand' : 'Pose'} model ready.`);
+      const entry = _modelReadyCallbacks.get(msg.model);
+      if (entry) { entry.subscribers.forEach(s => s.resolve()); _modelReadyCallbacks.delete(msg.model); }
+    } else if (msg.type === 'modelError') {
+      addLog(`Model load failed (${msg.model}): ${msg.message}`, 'error');
+      const entry = _modelReadyCallbacks.get(msg.model);
+      if (entry) { entry.subscribers.forEach(s => s.reject(new Error(msg.message))); _modelReadyCallbacks.delete(msg.model); }
     }
   };
 
@@ -259,6 +275,28 @@ export function initInferenceWorker({ onReady, onError }) {
   };
 
   worker.postMessage({ type: 'init' });
+}
+
+export function loadHandModel() {
+  if (state.handModelLoaded) return Promise.resolve();
+  if (_modelReadyCallbacks.has('hand')) {
+    return new Promise((resolve, reject) => _modelReadyCallbacks.get('hand').subscribers.push({ resolve, reject }));
+  }
+  return new Promise((resolve, reject) => {
+    _modelReadyCallbacks.set('hand', { subscribers: [{ resolve, reject }] });
+    trackingVars.worker.postMessage({ type: 'loadModel', model: 'hand' });
+  });
+}
+
+export function loadPoseModel() {
+  if (state.poseModelLoaded) return Promise.resolve();
+  if (_modelReadyCallbacks.has('pose')) {
+    return new Promise((resolve, reject) => _modelReadyCallbacks.get('pose').subscribers.push({ resolve, reject }));
+  }
+  return new Promise((resolve, reject) => {
+    _modelReadyCallbacks.set('pose', { subscribers: [{ resolve, reject }] });
+    trackingVars.worker.postMessage({ type: 'loadModel', model: 'pose' });
+  });
 }
 
 // ── Per-frame bitmap capture and dispatch ──────────────────────────────────

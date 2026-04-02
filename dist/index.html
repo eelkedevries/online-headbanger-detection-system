@@ -455,8 +455,58 @@
       .mini-row { grid-template-columns: 90px 1fr 42px; }
       .visual-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
+
+    /* ── Feature toggles ────────────────────────────────────────────────────── */
+    .toggle-group {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    .toggle-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+
+    /* Desktop: collapse details into flex flow, hide summary */
+    @media (min-width: 641px) {
+      #advancedToggle { display: contents; }
+      #advancedToggle > summary { display: none; }
+      #advancedToggle > .toggle-group { display: flex !important; }
+    }
+
+    /* Mobile: native details/summary disclosure */
+    @media (max-width: 640px) {
+      #advancedToggle { width: 100%; }
+      #advancedToggle summary {
+        cursor: pointer;
+        padding: 8px 4px;
+        font-size: 14px;
+        color: var(--accent);
+        list-style: disclosure-closed;
+        user-select: none;
+      }
+      #advancedToggle[open] summary { list-style: disclosure-open; }
+      #advancedToggle > .toggle-group {
+        padding: 10px 4px 4px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+    }
   </style>
-  <script type="module" crossorigin src="./assets/index-aE-UNQM3.js"></script>
+  <script type="module" crossorigin src="./assets/index-BzZO5W_V.js"></script>
 </head>
 <body>
   <main class="app">
@@ -472,6 +522,19 @@
           <button id="stopBtn" type="button" disabled>Stop camera</button>
           <button id="calibrateBtn" type="button" disabled>Set neutral pose</button>
           <button id="distanceRefBtn" type="button" disabled>Set reference distance</button>
+          <details id="advancedToggle">
+            <summary>Advanced</summary>
+            <div class="toggle-group">
+              <label class="toggle-label">
+                <input type="checkbox" id="handToggle">
+                Hands
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="poseToggle">
+                Pose
+              </label>
+            </div>
+          </details>
         </div>
         <p id="status" class="status">Loading MediaPipe model…</p>
         <div class="visual-grid">

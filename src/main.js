@@ -1,5 +1,6 @@
 import {
   video, startBtn, stopBtn, calibrateBtn, distanceRefBtn,
+  handToggle, poseToggle,
   trackingState, trackingHint, fpsValue, elapsedTimeValue, neutralState,
   movingTimeValue, stillTimeValue, movementBoutsValue, avgBoutValue,
   maxHeadSpeedValue, movementLoadValue, yawBalanceValue,
@@ -18,7 +19,8 @@ import { initAvatar3D, resizeAvatar3D, updateAvatar3D } from './avatar.js';
 import {
   trackingVars, state,
   logRuntimeError, initInferenceWorker, resetCachedTaskResults,
-  renderLoop, stopFrameScheduling, releaseCameraStream, clearMetricsForNoFace
+  renderLoop, stopFrameScheduling, releaseCameraStream, clearMetricsForNoFace,
+  loadHandModel, loadPoseModel
 } from './tracker.js';
 import { describeCameraError } from './utils.js';
 
@@ -225,9 +227,8 @@ async function init() {
     addLog("Starting inference worker and loading MediaPipe models…");
     initInferenceWorker({
       onReady() {
-        addLog("Face, hand, and pose models ready.");
-        addLog("Overlay is using explicit local hand/pose connector sets for compatibility.");
-        setStatus("Face, hand, and pose models are ready. Click 'Start camera'.", "ok");
+        addLog("Face model ready.");
+        setStatus("Face model ready. Click 'Start camera'.", "ok");
         startBtn.disabled = false;
         distanceRefBtn.disabled = true;
       },
@@ -272,6 +273,46 @@ startBtn.addEventListener("click", startCamera);
 stopBtn.addEventListener("click", stopCamera);
 calibrateBtn.addEventListener("click", calibrateNeutralPose);
 distanceRefBtn.addEventListener("click", setReferenceDistance);
+
+handToggle.addEventListener('change', async () => {
+  if (handToggle.checked) {
+    handToggle.disabled = true;
+    try {
+      await loadHandModel();
+      state.handEnabled = true;
+      addLog('Hand tracking enabled.');
+    } catch (err) {
+      handToggle.checked = false;
+      addLog(`Could not load hand model: ${err?.message || String(err)}`, 'error');
+    } finally {
+      handToggle.disabled = false;
+    }
+  } else {
+    state.handEnabled = false;
+    state.cachedHandResult = null;
+    addLog('Hand tracking disabled.');
+  }
+});
+
+poseToggle.addEventListener('change', async () => {
+  if (poseToggle.checked) {
+    poseToggle.disabled = true;
+    try {
+      await loadPoseModel();
+      state.poseEnabled = true;
+      addLog('Pose tracking enabled.');
+    } catch (err) {
+      poseToggle.checked = false;
+      addLog(`Could not load pose model: ${err?.message || String(err)}`, 'error');
+    } finally {
+      poseToggle.disabled = false;
+    }
+  } else {
+    state.poseEnabled = false;
+    state.cachedPoseResult = null;
+    addLog('Pose tracking disabled.');
+  }
+});
 window.addEventListener("resize", resizeHeadView, { passive: true });
 window.addEventListener("resize", resizeAvatar3D, { passive: true });
 

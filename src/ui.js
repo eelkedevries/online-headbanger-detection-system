@@ -13,6 +13,10 @@ export const startBtn = document.getElementById("startBtn");
 export const stopBtn = document.getElementById("stopBtn");
 export const calibrateBtn = document.getElementById("calibrateBtn");
 export const distanceRefBtn = document.getElementById("distanceRefBtn");
+
+// ── Feature toggles ────────────────────────────────────────────────────────
+export const handToggle = document.getElementById("handToggle");
+export const poseToggle = document.getElementById("poseToggle");
 export const statusEl = document.getElementById("status");
 export const startupLogEl = document.getElementById("startupLog");
 
