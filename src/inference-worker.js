@@ -2,6 +2,17 @@
 import { FaceLandmarker, HandLandmarker, PoseLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/vision_bundle.mjs';
 import { MODEL_URL, HAND_MODEL_URL, POSE_MODEL_URL, WASM_URL, HAND_UPDATE_INTERVAL_MS, POSE_UPDATE_INTERVAL_MS } from './constants.js';
 
+// Module workers don't support importScripts(), so MediaPipe falls back to
+// self.import(). Polyfill it using fetch + indirect eval so the loaded WASM
+// loader script runs in the global scope (var ModuleFactory lands on self).
+if (typeof self.import === 'undefined') {
+  self.import = async (url) => {
+    const res = await fetch(url);
+    const text = await res.text();
+    globalThis.eval(text); // indirect eval: global scope, non-strict — var becomes self.ModuleFactory
+  };
+}
+
 let fileset = null;
 let faceLandmarker = null;
 let handLandmarker = null;
