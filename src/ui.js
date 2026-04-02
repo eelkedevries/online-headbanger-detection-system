@@ -135,7 +135,9 @@ export const resolutionValue = document.getElementById("resolutionValue");
 
 // ── Quality indicator ──────────────────────────────────────────────────────
 export const qualityBarFill = document.getElementById("qualityBarFill");
+export const qualityBarTrack = document.getElementById("qualityBarTrack");
 export const qualityScore = document.getElementById("qualityScore");
+export const qualityLabel = document.getElementById("qualityLabel");
 export const qualityHint = document.getElementById("qualityHint");
 
 // ── Panels that dim on low quality ────────────────────────────────────────
@@ -191,12 +193,15 @@ export function setBar(barEl, value, maxAbsValue = MAX_BAR_ANGLE) {
   const percent = Math.abs(limited) / maxAbsValue * 50;
   barEl.style.left = limited >= 0 ? "50%" : `${50 - percent}%`;
   barEl.style.width = `${percent}%`;
+  barEl.parentElement.setAttribute('aria-valuenow', Math.round(limited));
 }
 
 // Bar always updates; text only when due.
 export function updateMiniMetric(name, value01) {
   const v = clamp(value01, 0, 1);
-  eyeMetricEls[name].bar.style.width = `${v * 100}%`;
+  const pct = Math.round(v * 100);
+  eyeMetricEls[name].bar.style.width = `${pct}%`;
+  eyeMetricEls[name].bar.parentElement.setAttribute('aria-valuenow', pct);
   if (_textUpdateDue) eyeMetricEls[name].value.textContent = formatPct01(v);
 }
 
@@ -220,6 +225,7 @@ export function resetPoseUI() {
   setBar(pitchBar, 0);
   setBar(rollBar, 0);
   setBar(headDistanceBar, 0, MAX_DISTANCE_DELTA_CM);
+  headDistanceBar.parentElement.setAttribute('aria-valuenow', 0);
 }
 
 // Bars always update; text only when due.
@@ -248,6 +254,7 @@ export function updateBasicExpressionsUI(basicExpr) {
   if (!basicExpr) {
     for (const els of Object.values(basicExprEls)) {
       els.bar.style.width = "0%";
+      els.bar.parentElement.setAttribute('aria-valuenow', 0);
       els.value.textContent = "0%";
     }
     dominantExprValue.textContent = "–";
@@ -262,6 +269,7 @@ export function updateBasicExpressionsUI(basicExpr) {
     const score = basicExpr[key];
     const pct = Math.round(score * 100);
     els.bar.style.width = `${pct}%`;
+    els.bar.parentElement.setAttribute('aria-valuenow', pct);
     if (_textUpdateDue) {
       els.value.textContent = `${pct}%`;
       if (score > dominantScore) { dominantScore = score; dominantKey = key; }
@@ -310,8 +318,10 @@ export function updateQualityUI(quality, hasFace) {
 
   if (!hasFace) {
     qualityBarFill.style.width = '0%';
+    qualityBarTrack.setAttribute('aria-valuenow', 0);
     if (_textUpdateDue) {
       qualityScore.textContent = '–';
+      qualityLabel.textContent = '';
       qualityHint.textContent = '';
     }
     return;
@@ -319,12 +329,14 @@ export function updateQualityUI(quality, hasFace) {
 
   const pct = Math.round(quality.score * 100);
   qualityBarFill.style.width = `${pct}%`;
+  qualityBarTrack.setAttribute('aria-valuenow', pct);
   qualityBarFill.style.backgroundColor = quality.score >= 0.7
     ? 'var(--ok)' : quality.score >= LOW_QUALITY_THRESHOLD
     ? 'var(--warn)' : '#e03131';
 
   if (_textUpdateDue) {
     qualityScore.textContent = `${pct}%`;
+    qualityLabel.textContent = quality.score >= 0.7 ? 'Good' : quality.score >= LOW_QUALITY_THRESHOLD ? 'Fair' : 'Poor';
     qualityHint.textContent = quality.hint;
   }
 }

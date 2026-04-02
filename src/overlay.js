@@ -11,6 +11,7 @@ export const headOverlayCtx = headOverlay.getContext("2d");
 // ── Module-level state ─────────────────────────────────────────────────────
 let videoDrawRect = null;
 let smoothedHeadCrop = null;
+const _reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 // ── Video draw rect ────────────────────────────────────────────────────────
 // Returns a rect in video-native pixel coordinates so that geometry.js
@@ -185,32 +186,37 @@ export function drawHeadView(faceLandmarks, poseResult) {
     0, 0, width, height
   );
 
-  drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, crop, { color: "rgba(120, 140, 150, 0.35)", lineWidth: 0.65 });
   drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, crop, { color: "rgba(230, 240, 255, 0.95)", lineWidth: 1.8 });
-  drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, crop, { color: "rgba(70, 110, 255, 0.95)", lineWidth: 1.7 });
-  drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, crop, { color: "rgba(70, 255, 110, 0.95)", lineWidth: 1.7 });
-  drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW, crop, { color: "rgba(70, 110, 255, 0.95)", lineWidth: 1.3 });
-  drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW, crop, { color: "rgba(70, 255, 110, 0.95)", lineWidth: 1.3 });
-  drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_IRIS, crop, { color: "rgba(35, 70, 255, 0.98)", lineWidth: 1.7 });
-  drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS, crop, { color: "rgba(40, 220, 70, 0.98)", lineWidth: 1.7 });
-  drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, crop, { color: "rgba(255, 210, 160, 0.9)", lineWidth: 1.4 });
-  drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_NOSE, crop, { color: "rgba(255, 90, 90, 0.78)", lineWidth: 1.2 });
 
-  const poseLandmarks = poseResult?.landmarks?.[0];
-  if (poseLandmarks?.[11] && poseLandmarks?.[12]) {
-    const ls = poseLandmarks[11];
-    const rs = poseLandmarks[12];
-    if ((ls.visibility ?? 1) > 0.35 && (rs.visibility ?? 1) > 0.35) {
-      const p1 = mapHeadPoint(ls, crop, width, height);
-      const p2 = mapHeadPoint(rs, crop, width, height);
-      headOverlayCtx.save();
-      headOverlayCtx.strokeStyle = "rgba(110, 225, 255, 0.8)";
-      headOverlayCtx.lineWidth = 2;
-      headOverlayCtx.beginPath();
-      headOverlayCtx.moveTo(p1.x, p1.y);
-      headOverlayCtx.lineTo(p2.x, p2.y);
-      headOverlayCtx.stroke();
-      headOverlayCtx.restore();
+  if (!_reducedMotion.matches) {
+    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, crop, { color: "rgba(120, 140, 150, 0.35)", lineWidth: 0.65 });
+    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, crop, { color: "rgba(70, 110, 255, 0.95)", lineWidth: 1.7 });
+    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, crop, { color: "rgba(70, 255, 110, 0.95)", lineWidth: 1.7 });
+    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW, crop, { color: "rgba(70, 110, 255, 0.95)", lineWidth: 1.3 });
+    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW, crop, { color: "rgba(70, 255, 110, 0.95)", lineWidth: 1.3 });
+    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_IRIS, crop, { color: "rgba(35, 70, 255, 0.98)", lineWidth: 1.7 });
+    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS, crop, { color: "rgba(40, 220, 70, 0.98)", lineWidth: 1.7 });
+    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, crop, { color: "rgba(255, 210, 160, 0.9)", lineWidth: 1.4 });
+    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_NOSE, crop, { color: "rgba(255, 90, 90, 0.78)", lineWidth: 1.2 });
+  }
+
+  if (!_reducedMotion.matches) {
+    const poseLandmarks = poseResult?.landmarks?.[0];
+    if (poseLandmarks?.[11] && poseLandmarks?.[12]) {
+      const ls = poseLandmarks[11];
+      const rs = poseLandmarks[12];
+      if ((ls.visibility ?? 1) > 0.35 && (rs.visibility ?? 1) > 0.35) {
+        const p1 = mapHeadPoint(ls, crop, width, height);
+        const p2 = mapHeadPoint(rs, crop, width, height);
+        headOverlayCtx.save();
+        headOverlayCtx.strokeStyle = "rgba(110, 225, 255, 0.8)";
+        headOverlayCtx.lineWidth = 2;
+        headOverlayCtx.beginPath();
+        headOverlayCtx.moveTo(p1.x, p1.y);
+        headOverlayCtx.lineTo(p2.x, p2.y);
+        headOverlayCtx.stroke();
+        headOverlayCtx.restore();
+      }
     }
   }
 }
