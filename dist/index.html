@@ -461,6 +461,22 @@
       .visual-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
 
+    /* ── Focus-visible outlines ─────────────────────────────────────────────── */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    /* ── Reduced motion ─────────────────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      button { transition: none; }
+      .metric { transition: none; }
+      #recordBtn.recording { animation: none; }
+      #qualityBarFill { transition: none; }
+      #avatarVisualBox { display: none; }
+    }
+
     /* ── Feature toggles ────────────────────────────────────────────────────── */
     .toggle-group {
       display: flex;
@@ -520,7 +536,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-CI1JmQ6L.js"></script>
+  <script type="module" crossorigin src="./assets/index-CC9rFsGi.js"></script>
 </head>
 <body>
   <main class="app">
@@ -557,7 +573,7 @@
           </details>
           <span id="faceModelNotice" class="model-disabled-notice" hidden>Face model disabled — auto-retry in 30s</span>
         </div>
-        <p id="status" class="status">Loading MediaPipe model…</p>
+        <p id="status" class="status" role="status">Loading MediaPipe model…</p>
         <div class="visual-grid">
           <div class="visual-box">
             <div class="visual-label">Face close-up + landmarks</div>
@@ -566,9 +582,9 @@
               <canvas id="headOverlay"></canvas>
             </div>
           </div>
-          <div class="visual-box">
+          <div class="visual-box" id="avatarVisualBox">
             <div class="visual-label">3D avatar</div>
-            <div id="avatar3d" class="avatar-stage"></div>
+            <div id="avatar3d" class="avatar-stage" aria-hidden="true"></div>
           </div>
         </div>
 
@@ -584,22 +600,22 @@
           <h2>Head pose</h2>
           <div class="bar-block">
             <div class="bar-label"><span>Yaw <span class="muted" style="font-weight:400;font-size:12px;">(nodding "no")</span></span><span id="yawValue">0.0°</span></div>
-            <div class="bar-track"><div id="yawBar" class="bar-fill"></div></div>
+            <div class="bar-track" role="meter" aria-label="Yaw angle" aria-valuemin="-180" aria-valuemax="180" aria-valuenow="0"><div id="yawBar" class="bar-fill"></div></div>
           </div>
           <div class="bar-block">
             <div class="bar-label"><span>Pitch <span class="muted" style="font-weight:400;font-size:12px;">(nodding "yes")</span></span><span id="pitchValue">0.0°</span></div>
-            <div class="bar-track"><div id="pitchBar" class="bar-fill"></div></div>
+            <div class="bar-track" role="meter" aria-label="Pitch angle" aria-valuemin="-180" aria-valuemax="180" aria-valuenow="0"><div id="pitchBar" class="bar-fill"></div></div>
           </div>
           <div class="bar-block">
             <div class="bar-label"><span>Roll <span class="muted" style="font-weight:400;font-size:12px;">(tilting sideways)</span></span><span id="rollValue">0.0°</span></div>
-            <div class="bar-track"><div id="rollBar" class="bar-fill"></div></div>
+            <div class="bar-track" role="meter" aria-label="Roll angle" aria-valuemin="-180" aria-valuemax="180" aria-valuenow="0"><div id="rollBar" class="bar-fill"></div></div>
             <div class="axis-ticks" aria-hidden="true">
               <span>-180</span><span>-90</span><span>0</span><span>90</span><span>180</span>
             </div>
           </div>
           <div class="bar-block">
             <div class="bar-label"><span>Distance</span><span id="headDistanceValue">–</span></div>
-            <div class="bar-track"><div id="headDistanceBar" class="bar-fill"></div></div>
+            <div class="bar-track" role="meter" aria-label="Distance from reference in centimetres" aria-valuemin="-20" aria-valuemax="20" aria-valuenow="0"><div id="headDistanceBar" class="bar-fill"></div></div>
             <div class="axis-ticks" aria-hidden="true">
               <span>-20</span><span>-10</span><span>0</span><span>+10</span><span>+20</span>
             </div>
@@ -608,11 +624,11 @@
 
         <div class="metric" id="panelEyes">
           <h3>Eyes</h3>
-          <div class="mini-row"><div class="label">Blink</div><div class="mini-track"><div id="exprBlinkBar" class="mini-fill"></div></div><div id="exprBlinkValue">0%</div></div>
-          <div class="mini-row"><div class="label">Eye openness</div><div class="mini-track"><div id="exprOpenBar" class="mini-fill"></div></div><div id="exprOpenValue">0%</div></div>
-          <div class="mini-row"><div class="label">Squint</div><div class="mini-track"><div id="exprSquintBar" class="mini-fill"></div></div><div id="exprSquintValue">0%</div></div>
-          <div class="mini-row"><div class="label">Brow raise</div><div class="mini-track"><div id="exprBrowRaiseBar" class="mini-fill"></div></div><div id="exprBrowRaiseValue">0%</div></div>
-          <div class="mini-row"><div class="label">Brow furrow</div><div class="mini-track"><div id="exprBrowFurrowBar" class="mini-fill"></div></div><div id="exprBrowFurrowValue">0%</div></div>
+          <div class="mini-row"><div class="label">Blink</div><div class="mini-track" role="meter" aria-label="Blink" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="exprBlinkBar" class="mini-fill"></div></div><div id="exprBlinkValue">0%</div></div>
+          <div class="mini-row"><div class="label">Eye openness</div><div class="mini-track" role="meter" aria-label="Eye openness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="exprOpenBar" class="mini-fill"></div></div><div id="exprOpenValue">0%</div></div>
+          <div class="mini-row"><div class="label">Squint</div><div class="mini-track" role="meter" aria-label="Squint" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="exprSquintBar" class="mini-fill"></div></div><div id="exprSquintValue">0%</div></div>
+          <div class="mini-row"><div class="label">Brow raise</div><div class="mini-track" role="meter" aria-label="Brow raise" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="exprBrowRaiseBar" class="mini-fill"></div></div><div id="exprBrowRaiseValue">0%</div></div>
+          <div class="mini-row"><div class="label">Brow furrow</div><div class="mini-track" role="meter" aria-label="Brow furrow" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="exprBrowFurrowBar" class="mini-fill"></div></div><div id="exprBrowFurrowValue">0%</div></div>
           <div class="muted" style="margin-top: 8px; font-size: 12px;">Heuristic eye and brow estimates derived from face blendshapes.</div>
         </div>
 
@@ -620,15 +636,15 @@
           <h3>Basic expressions</h3>
           <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
             <span class="muted" style="font-size: 13px;">Dominant:</span>
-            <span id="dominantExprValue" class="pill">–</span>
+            <span id="dominantExprValue" class="pill" aria-live="polite" aria-atomic="true">–</span>
           </div>
-          <div class="mini-row"><div class="label">Happiness</div><div class="mini-track"><div id="basicHappinessBar" class="mini-fill"></div></div><div id="basicHappinessValue">0%</div></div>
-          <div class="mini-row"><div class="label">Sadness</div><div class="mini-track"><div id="basicSadnessBar" class="mini-fill"></div></div><div id="basicSadnessValue">0%</div></div>
-          <div class="mini-row"><div class="label">Fear</div><div class="mini-track"><div id="basicFearBar" class="mini-fill"></div></div><div id="basicFearValue">0%</div></div>
-          <div class="mini-row"><div class="label">Disgust</div><div class="mini-track"><div id="basicDisgustBar" class="mini-fill"></div></div><div id="basicDisgustValue">0%</div></div>
-          <div class="mini-row"><div class="label">Anger</div><div class="mini-track"><div id="basicAngerBar" class="mini-fill"></div></div><div id="basicAngerValue">0%</div></div>
-          <div class="mini-row"><div class="label">Surprise</div><div class="mini-track"><div id="basicSurpriseBar" class="mini-fill"></div></div><div id="basicSurpriseValue">0%</div></div>
-          <div class="mini-row"><div class="label">Contempt</div><div class="mini-track"><div id="basicContemptBar" class="mini-fill"></div></div><div id="basicContemptValue">0%</div></div>
+          <div class="mini-row"><div class="label">Happiness</div><div class="mini-track" role="meter" aria-label="Happiness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="basicHappinessBar" class="mini-fill"></div></div><div id="basicHappinessValue">0%</div></div>
+          <div class="mini-row"><div class="label">Sadness</div><div class="mini-track" role="meter" aria-label="Sadness" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="basicSadnessBar" class="mini-fill"></div></div><div id="basicSadnessValue">0%</div></div>
+          <div class="mini-row"><div class="label">Fear</div><div class="mini-track" role="meter" aria-label="Fear" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="basicFearBar" class="mini-fill"></div></div><div id="basicFearValue">0%</div></div>
+          <div class="mini-row"><div class="label">Disgust</div><div class="mini-track" role="meter" aria-label="Disgust" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="basicDisgustBar" class="mini-fill"></div></div><div id="basicDisgustValue">0%</div></div>
+          <div class="mini-row"><div class="label">Anger</div><div class="mini-track" role="meter" aria-label="Anger" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="basicAngerBar" class="mini-fill"></div></div><div id="basicAngerValue">0%</div></div>
+          <div class="mini-row"><div class="label">Surprise</div><div class="mini-track" role="meter" aria-label="Surprise" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="basicSurpriseBar" class="mini-fill"></div></div><div id="basicSurpriseValue">0%</div></div>
+          <div class="mini-row"><div class="label">Contempt</div><div class="mini-track" role="meter" aria-label="Contempt" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="basicContemptBar" class="mini-fill"></div></div><div id="basicContemptValue">0%</div></div>
           <div class="muted" style="margin-top: 8px; font-size: 12px;">Heuristic estimates derived from blendshape weights. Not a calibrated classifier.</div>
         </div>
 
@@ -663,13 +679,14 @@
         <div class="grid-3">
           <div class="metric">
             <h3>Tracking</h3>
-            <div class="metric-value small" id="trackingState">Waiting</div>
+            <div class="metric-value small" id="trackingState" aria-live="polite" aria-atomic="true">Waiting</div>
             <div class="muted" id="trackingHint">Start the camera to begin tracking.</div>
             <div style="margin-top:10px; display:flex; align-items:center; gap:8px;">
-              <div style="width:80px; height:6px; background:var(--border); border-radius:3px; overflow:hidden;">
+              <div id="qualityBarTrack" role="meter" aria-label="Tracking quality" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="width:80px; height:6px; background:var(--border); border-radius:3px; overflow:hidden;">
                 <div id="qualityBarFill" style="height:100%; width:0%; background:var(--ok); border-radius:3px; transition:width 0.3s, background-color 0.3s;"></div>
               </div>
               <span id="qualityScore" class="muted" style="font-size:12px;">–</span>
+              <span id="qualityLabel" class="muted" style="font-size:12px;"></span>
             </div>
             <div id="qualityHint" style="font-size:12px; margin-top:4px; color:var(--warn); min-height:1em;"></div>
           </div>
