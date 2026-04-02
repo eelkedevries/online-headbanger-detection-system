@@ -12,8 +12,8 @@ import {
   resizeOverlay, resizeHeadView, clearOverlay, clearHeadView,
   resetSmoothedHeadCrop, overlayConfig
 } from './overlay.js';
-import { distanceRef, currentFaceWidthPxFromResult, matrixToRotation3x3 } from './geometry.js';
-import { motionConfig, finalizeBout } from './motion.js';
+import { distanceRef, currentFaceWidthPxFromResult } from './geometry.js';
+import { motionConfig, finalizeBout, startCalibrationCollection } from './motion.js';
 import { initAvatar3D, resizeAvatar3D, updateAvatar3D } from './avatar.js';
 import {
   trackingVars, state,
@@ -50,6 +50,10 @@ function resetDerivedState() {
   state.yawningState = false;
   state.yawnThresholdStartTime = null;
   motionConfig.neutralRotation = null;
+  motionConfig.calibrating = false;
+  motionConfig.calibBuffer = [];
+  motionConfig.calibMode = null;
+  motionConfig._calibPrevRot = null;
   distanceRef.referenceFaceWidthPx = null;
   distanceRef.referenceDistanceCm = 50;
   distanceRef.referenceIsDefault = true;
@@ -179,15 +183,9 @@ function calibrateNeutralPose() {
     setStatus("Wait until a live face frame has been processed, then try again.", "warn");
     return;
   }
-  const rotation = matrixToRotation3x3(state.cachedFaceResult?.facialTransformationMatrixes?.[0]);
-  if (!rotation) {
-    setStatus("No face was detected in the latest live frame. Look at the camera and try again.", "warn");
-    return;
-  }
-  motionConfig.neutralRotation = rotation;
-  neutralState.textContent = "Manually set";
-  addLog("Neutral pose captured from the latest live frame.");
-  setStatus("Neutral pose stored.", "ok");
+  startCalibrationCollection('manual');
+  addLog("Neutral pose collection started — hold still.");
+  setStatus("Hold still. Collecting stable frames for neutral pose…");
 }
 
 function setReferenceDistance() {

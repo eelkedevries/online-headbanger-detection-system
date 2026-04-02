@@ -1,7 +1,8 @@
 import {
   MOVING_THRESHOLD, HEADBANG_SPEED_THRESHOLD, HISTORY_WINDOW_MS, MOTION_WINDOW_MS,
   JAW_HISTORY_MS, TALKING_RANGE_THRESHOLD, TALKING_MIN_MEAN,
-  YAWN_OPEN_THRESHOLD, YAWN_SUSTAINED_MS
+  YAWN_OPEN_THRESHOLD, YAWN_SUSTAINED_MS,
+  CALIB_FRAMES_TARGET, CALIB_JITTER_MAX
 } from './constants.js';
 import { mean } from './utils.js';
 import {
@@ -10,22 +11,94 @@ import {
   movementLoadValue, yawBalanceValue,
   eventNodCount, eventShakeCount, eventTiltLeftCount, eventTiltRightCount, eventHeadbangCount,
   nodFreqValue, shakeFreqValue, tiltFreqValue, headbangFreqValue,
-  blinkCountValue, talkingStateValue, yawningStateValue, isTextUpdateDue
+  blinkCountValue, talkingStateValue, yawningStateValue, isTextUpdateDue,
+  addLog, setStatus
 } from './ui.js';
 import { matrixToRotation3x3, multiply3, transpose3, rotationToEulerDegrees } from './geometry.js';
 import { state } from './tracker.js';
 
 // ── Shared neutral rotation (mutated by main.js via motionConfig) ──────────
-export const motionConfig = { neutralRotation: null };
+export const motionConfig = {
+  neutralRotation: null,
+  calibrating: false,
+  calibBuffer: [],
+  calibMode: null,       // 'auto' | 'manual'
+  _calibPrevRot: null    // last seen rotation for jitter detection
+};
+
+// ── Calibration helpers ────────────────────────────────────────────────────
+function _frobenius2(a, b) {
+  let sum = 0;
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      const d = a[i][j] - b[i][j];
+      sum += d * d;
+    }
+  }
+  return sum;
+}
+
+function _averageRotations(matrices) {
+  const avg = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (const m of matrices) {
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        avg[i][j] += m[i][j];
+      }
+    }
+  }
+  const n = matrices.length;
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      avg[i][j] /= n;
+    }
+  }
+  return avg;
+}
+
+export function startCalibrationCollection(mode) {
+  motionConfig.calibrating = true;
+  motionConfig.calibBuffer = [];
+  motionConfig.calibMode = mode;
+  motionConfig._calibPrevRot = null;
+  neutralState.textContent = `Collecting… (0/${CALIB_FRAMES_TARGET})`;
+}
 
 // ── Pose estimation ────────────────────────────────────────────────────────
 export function estimatePose(result) {
   const rotation = matrixToRotation3x3(result?.facialTransformationMatrixes?.[0]);
   if (!rotation) return null;
-  if (!motionConfig.neutralRotation) {
-    motionConfig.neutralRotation = rotation;
-    neutralState.textContent = "Auto-set from first tracked frame";
+
+  // Auto-start calibration on the first valid frame
+  if (!motionConfig.neutralRotation && !motionConfig.calibrating) {
+    startCalibrationCollection('auto');
   }
+
+  // Collect stable frames for calibration
+  if (motionConfig.calibrating) {
+    const prev = motionConfig._calibPrevRot;
+    motionConfig._calibPrevRot = rotation;
+    if (prev && _frobenius2(rotation, prev) <= CALIB_JITTER_MAX) {
+      motionConfig.calibBuffer.push(rotation);
+      neutralState.textContent = `Collecting… (${motionConfig.calibBuffer.length}/${CALIB_FRAMES_TARGET})`;
+      if (motionConfig.calibBuffer.length >= CALIB_FRAMES_TARGET) {
+        motionConfig.neutralRotation = _averageRotations(motionConfig.calibBuffer);
+        motionConfig.calibrating = false;
+        motionConfig.calibBuffer = [];
+        motionConfig._calibPrevRot = null;
+        if (motionConfig.calibMode === 'manual') {
+          neutralState.textContent = "Manually set (averaged)";
+          addLog("Neutral pose captured (averaged over 30 stable frames).");
+          setStatus("Neutral pose stored.", "ok");
+        } else {
+          neutralState.textContent = "Auto-set (averaged)";
+        }
+        motionConfig.calibMode = null;
+      }
+    }
+    if (!motionConfig.neutralRotation) return null;
+  }
+
   const relative = multiply3(rotation, transpose3(motionConfig.neutralRotation));
   return rotationToEulerDegrees(relative);
 }

@@ -22,6 +22,8 @@ export const TALKING_MIN_MEAN = 0.04;
 export const YAWN_OPEN_THRESHOLD = 0.52;
 export const YAWN_SUSTAINED_MS = 1800;
 export const LOW_QUALITY_THRESHOLD = 0.5;
+export const CALIB_FRAMES_TARGET = 30;
+export const CALIB_JITTER_MAX = 0.001;  // Frobenius‖²; rejects frames above ~10°/s at 30 fps
 export const MAX_RENDER_DPR = typeof window !== 'undefined'
   ? (window.matchMedia('(max-width: 900px)').matches ? 1.25 : 2)
   : 2;
