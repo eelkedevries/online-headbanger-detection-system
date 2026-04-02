@@ -1,5 +1,5 @@
 import {
-  video, startBtn, stopBtn, calibrateBtn, distanceRefBtn, meshIdsBtn,
+  video, startBtn, stopBtn, calibrateBtn, distanceRefBtn,
   trackingState, trackingHint, fpsValue, elapsedTimeValue, neutralState,
   movingTimeValue, stillTimeValue, movementBoutsValue, avgBoutValue,
   maxHeadSpeedValue, movementLoadValue, yawBalanceValue,
@@ -9,8 +9,8 @@ import {
   addLog, setStatus, resetPoseUI
 } from './ui.js';
 import {
-  resizeOverlay, resizeHeadView, clearOverlay, clearHeadView,
-  resetSmoothedHeadCrop, overlayConfig
+  resizeHeadView, clearHeadView,
+  resetSmoothedHeadCrop
 } from './overlay.js';
 import { distanceRef, currentFaceWidthPxFromResult } from './geometry.js';
 import { motionConfig, finalizeBout, startCalibrationCollection } from './motion.js';
@@ -120,7 +120,6 @@ async function startCamera() {
     state.sessionStartTime = performance.now();
     video.srcObject = trackingVars.mediaStream;
     await video.play();
-    resizeOverlay();
     resetCachedTaskResults();
     state.fpsHistory = [];
     fpsValue.textContent = "0";
@@ -135,7 +134,6 @@ async function startCamera() {
     setStatus("Camera started. Look straight at the camera and click 'Set neutral pose'. Use 'Set reference distance' if you want an approximate centimetre estimate.", "ok");
   } catch (error) {
     releaseCameraStream();
-    clearOverlay();
     clearHeadView();
     updateAvatar3D(null, null, null, null);
     resetPoseUI();
@@ -158,7 +156,6 @@ async function startCamera() {
 function stopCamera() {
   releaseCameraStream();
   if (state.isMoving) finalizeBout(performance.now());
-  clearOverlay();
   clearHeadView();
   updateAvatar3D(null, null, null, null);
   resetPoseUI();
@@ -220,7 +217,6 @@ async function init() {
     initAvatar3D();
     addLog("3D preview initialised.");
 
-    resizeOverlay();
     resizeAvatar3D();
     resetPoseUI();
     resetDerivedState();
@@ -258,11 +254,9 @@ async function init() {
 // ── Event listeners ────────────────────────────────────────────────────────
 video.addEventListener("loadedmetadata", () => {
   addLog(`Video metadata loaded (${video.videoWidth || "?"}×${video.videoHeight || "?"}).`);
-  resizeOverlay();
 });
 video.addEventListener("resize", () => {
   addLog(`Video resized (${video.videoWidth || "?"}×${video.videoHeight || "?"}).`);
-  resizeOverlay();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
@@ -278,16 +272,10 @@ startBtn.addEventListener("click", startCamera);
 stopBtn.addEventListener("click", stopCamera);
 calibrateBtn.addEventListener("click", calibrateNeutralPose);
 distanceRefBtn.addEventListener("click", setReferenceDistance);
-meshIdsBtn.addEventListener("click", () => {
-  overlayConfig.showFaceIds = !overlayConfig.showFaceIds;
-  meshIdsBtn.textContent = `IDs: ${overlayConfig.showFaceIds ? "on" : "off"}`;
-});
-window.addEventListener("resize", resizeOverlay, { passive: true });
 window.addEventListener("resize", resizeHeadView, { passive: true });
 window.addEventListener("resize", resizeAvatar3D, { passive: true });
 
 const stageObserver = new ResizeObserver(() => {
-  resizeOverlay();
   resizeHeadView();
   resizeAvatar3D();
 });

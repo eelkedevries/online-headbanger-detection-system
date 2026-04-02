@@ -4,7 +4,6 @@ import { getAdaptiveNeutralThreshold } from './expressions.js';
 
 // ── Canvas / video elements ────────────────────────────────────────────────
 export const video = document.getElementById("video");
-export const overlay = document.getElementById("overlay");
 export const headFeedCanvas = document.getElementById("headFeedCanvas");
 export const headOverlay = document.getElementById("headOverlay");
 export const avatar3dEl = document.getElementById("avatar3d");
@@ -14,7 +13,6 @@ export const startBtn = document.getElementById("startBtn");
 export const stopBtn = document.getElementById("stopBtn");
 export const calibrateBtn = document.getElementById("calibrateBtn");
 export const distanceRefBtn = document.getElementById("distanceRefBtn");
-export const meshIdsBtn = document.getElementById("meshIdsBtn");
 export const statusEl = document.getElementById("status");
 export const startupLogEl = document.getElementById("startupLog");
 

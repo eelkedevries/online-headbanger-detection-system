@@ -7,7 +7,7 @@ import {
   tickTextThrottle, updateQualityUI
 } from './ui.js';
 import { updateQuality, getQuality, isQualityLow, resetQuality } from './quality.js';
-import { updateVideoDrawRect, clearOverlay, clearHeadView, resizeOverlay, resetSmoothedHeadCrop, drawFace, drawHeadView, drawPoseOverlay, drawHandOverlay } from './overlay.js';
+import { updateVideoDrawRect, clearHeadView, resetSmoothedHeadCrop, drawHeadView } from './overlay.js';
 import { calculateGeometry, updateDistanceUI, updateGeometryUI, distanceRef } from './geometry.js';
 import { getBlendshapeMap, deriveExpressions, deriveBasicExpressions, resetExpressionState } from './expressions.js';
 import { estimateAttention } from './attention.js';
@@ -116,10 +116,6 @@ export function clearMetricsForNoFace() {
 // motion-state accumulation so it runs at inference rate, not rAF rate).
 export function processFrame(result, poseResult, handResult, now, isNewResult = true) {
   tickTextThrottle(now);
-  clearOverlay();
-  drawPoseOverlay(poseResult);
-  drawHandOverlay(handResult);
-
   const landmarks = result?.faceLandmarks?.[0];
   const hasFace = Boolean(landmarks);
   updateTrackingState(hasFace);
@@ -142,7 +138,6 @@ export function processFrame(result, poseResult, handResult, now, isNewResult = 
     return;
   }
 
-  drawFace(landmarks);
   drawHeadView(landmarks, poseResult);
 
   const geometry = calculateGeometry(landmarks);

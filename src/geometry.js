@@ -1,7 +1,6 @@
 import { RAD2DEG, DEG2RAD, DEFAULT_CAMERA_HORIZONTAL_FOV_DEG, LM } from './constants.js';
 import { clamp, dist, mean } from './utils.js';
 import {
-  overlay,
   distanceValue, distanceHint, distanceMode,
   faceWidthPx, faceHeightPx, interEyePxValue, irisDiameterPxValue,
   geomFaceWidthEstimate, geomFaceHeightEstimate, geomInterEyeEstimate, geomIrisEstimate,
@@ -80,7 +79,7 @@ export function getFaceBounds(landmarks) {
   return { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY };
 }
 
-export function getPoint(landmarks, idx, width = 1, height = 1) {
+export function getPoint(landmarks, idx) {
   const rect = getVideoDrawRect();
   return {
     x: rect.x + landmarks[idx].x * rect.width,
@@ -88,11 +87,11 @@ export function getPoint(landmarks, idx, width = 1, height = 1) {
   };
 }
 
-export function averagePoint(landmarks, indices, width = 1, height = 1) {
+export function averagePoint(landmarks, indices) {
   let x = 0;
   let y = 0;
   for (const idx of indices) {
-    const point = getPoint(landmarks, idx, width, height);
+    const point = getPoint(landmarks, idx);
     x += point.x;
     y += point.y;
   }
@@ -142,8 +141,6 @@ export function currentFaceWidthPxFromResult(result) {
 
 // ── Face geometry calculation ──────────────────────────────────────────────
 export function calculateGeometry(landmarks) {
-  const width = overlay.clientWidth;
-  const height = overlay.clientHeight;
   const rect = getVideoDrawRect();
   const bounds = getFaceBounds(landmarks);
   const faceWidth = bounds.width * rect.width;
@@ -151,22 +148,22 @@ export function calculateGeometry(landmarks) {
   const faceCenterX = ((bounds.minX + bounds.maxX) / 2 - 0.5) * 100;
   const faceCenterY = ((bounds.minY + bounds.maxY) / 2 - 0.5) * 100;
 
-  const mouthLeft = getPoint(landmarks, LM.mouthLeft, width, height);
-  const mouthRight = getPoint(landmarks, LM.mouthRight, width, height);
-  const mouthTop = getPoint(landmarks, LM.mouthTop, width, height);
-  const mouthBottom = getPoint(landmarks, LM.mouthBottom, width, height);
+  const mouthLeft = getPoint(landmarks, LM.mouthLeft);
+  const mouthRight = getPoint(landmarks, LM.mouthRight);
+  const mouthTop = getPoint(landmarks, LM.mouthTop);
+  const mouthBottom = getPoint(landmarks, LM.mouthBottom);
   const mouthWidth = dist(mouthLeft, mouthRight);
   const mouthHeight = dist(mouthTop, mouthBottom);
   const mouthAspect = mouthHeight / Math.max(mouthWidth, 1e-6);
 
-  const leftEyeOuter = getPoint(landmarks, LM.leftEyeOuter, width, height);
-  const leftEyeInner = getPoint(landmarks, LM.leftEyeInner, width, height);
-  const leftEyeTop = getPoint(landmarks, LM.leftEyeTop, width, height);
-  const leftEyeBottom = getPoint(landmarks, LM.leftEyeBottom, width, height);
-  const rightEyeOuter = getPoint(landmarks, LM.rightEyeOuter, width, height);
-  const rightEyeInner = getPoint(landmarks, LM.rightEyeInner, width, height);
-  const rightEyeTop = getPoint(landmarks, LM.rightEyeTop, width, height);
-  const rightEyeBottom = getPoint(landmarks, LM.rightEyeBottom, width, height);
+  const leftEyeOuter = getPoint(landmarks, LM.leftEyeOuter);
+  const leftEyeInner = getPoint(landmarks, LM.leftEyeInner);
+  const leftEyeTop = getPoint(landmarks, LM.leftEyeTop);
+  const leftEyeBottom = getPoint(landmarks, LM.leftEyeBottom);
+  const rightEyeOuter = getPoint(landmarks, LM.rightEyeOuter);
+  const rightEyeInner = getPoint(landmarks, LM.rightEyeInner);
+  const rightEyeTop = getPoint(landmarks, LM.rightEyeTop);
+  const rightEyeBottom = getPoint(landmarks, LM.rightEyeBottom);
 
   const leftEyeWidth = dist(leftEyeOuter, leftEyeInner);
   const rightEyeWidth = dist(rightEyeOuter, rightEyeInner);
@@ -175,21 +172,21 @@ export function calculateGeometry(landmarks) {
   const leftEAR = leftEyeHeight / Math.max(leftEyeWidth, 1e-6);
   const rightEAR = rightEyeHeight / Math.max(rightEyeWidth, 1e-6);
 
-  const leftIrisCenter = averagePoint(landmarks, LM.leftIris, width, height);
-  const rightIrisCenter = averagePoint(landmarks, LM.rightIris, width, height);
+  const leftIrisCenter = averagePoint(landmarks, LM.leftIris);
+  const rightIrisCenter = averagePoint(landmarks, LM.rightIris);
   const interEye = dist(leftIrisCenter, rightIrisCenter);
 
   const irisDiameter = mean([
-    dist(getPoint(landmarks, 469, width, height), getPoint(landmarks, 471, width, height)),
-    dist(getPoint(landmarks, 474, width, height), getPoint(landmarks, 476, width, height)),
-    dist(getPoint(landmarks, 470, width, height), getPoint(landmarks, 472, width, height)),
-    dist(getPoint(landmarks, 475, width, height), getPoint(landmarks, 477, width, height))
+    dist(getPoint(landmarks, 469), getPoint(landmarks, 471)),
+    dist(getPoint(landmarks, 474), getPoint(landmarks, 476)),
+    dist(getPoint(landmarks, 470), getPoint(landmarks, 472)),
+    dist(getPoint(landmarks, 475), getPoint(landmarks, 477))
   ]);
 
   const leftEyeCenter = { x: (leftEyeOuter.x + leftEyeInner.x) / 2, y: (leftEyeTop.y + leftEyeBottom.y) / 2 };
   const rightEyeCenter = { x: (rightEyeOuter.x + rightEyeInner.x) / 2, y: (rightEyeTop.y + rightEyeBottom.y) / 2 };
-  const leftBrowY = mean(LM.leftBrow.map(idx => getPoint(landmarks, idx, width, height).y));
-  const rightBrowY = mean(LM.rightBrow.map(idx => getPoint(landmarks, idx, width, height).y));
+  const leftBrowY = mean(LM.leftBrow.map(idx => getPoint(landmarks, idx).y));
+  const rightBrowY = mean(LM.rightBrow.map(idx => getPoint(landmarks, idx).y));
   const leftBrowHeight = (leftEyeCenter.y - leftBrowY) / Math.max(faceHeight, 1e-6);
   const rightBrowHeight = (rightEyeCenter.y - rightBrowY) / Math.max(faceHeight, 1e-6);
 
