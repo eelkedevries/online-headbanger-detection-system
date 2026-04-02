@@ -484,6 +484,15 @@
       accent-color: var(--accent);
     }
 
+    .model-disabled-notice {
+      font-size: 12px;
+      color: #e03131;
+      background: rgba(224, 49, 49, 0.12);
+      border: 1px solid rgba(224, 49, 49, 0.35);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+
     /* Desktop: collapse details into flex flow, hide summary */
     @media (min-width: 641px) {
       #advancedToggle { display: contents; }
@@ -511,7 +520,7 @@
       }
     }
   </style>
-  <script type="module" crossorigin src="./assets/index-fCBAB5XW.js"></script>
+  <script type="module" crossorigin src="./assets/index-CI1JmQ6L.js"></script>
 </head>
 <body>
   <main class="app">
@@ -529,6 +538,7 @@
           <button id="distanceRefBtn" type="button" disabled>Set reference distance</button>
           <button id="recordBtn" type="button">Record</button>
           <button id="downloadBtn" type="button" disabled>Download CSV</button>
+          <button id="faceRetryBtn" type="button" hidden>Retry face model</button>
           <span id="recordFrameCount"></span>
           <details id="advancedToggle">
             <summary>Advanced</summary>
@@ -537,12 +547,15 @@
                 <input type="checkbox" id="handToggle">
                 Hands
               </label>
+              <span id="handModelNotice" class="model-disabled-notice" hidden>Hand model disabled — auto-retry in 30s</span>
               <label class="toggle-label">
                 <input type="checkbox" id="poseToggle">
                 Pose
               </label>
+              <span id="poseModelNotice" class="model-disabled-notice" hidden>Pose model disabled — auto-retry in 30s</span>
             </div>
           </details>
+          <span id="faceModelNotice" class="model-disabled-notice" hidden>Face model disabled — auto-retry in 30s</span>
         </div>
         <p id="status" class="status">Loading MediaPipe model…</p>
         <div class="visual-grid">

@@ -20,6 +20,18 @@ export const poseToggle = document.getElementById("poseToggle");
 export const statusEl = document.getElementById("status");
 export const startupLogEl = document.getElementById("startupLog");
 
+// ── Model failure notices ──────────────────────────────────────────────────
+export const faceRetryBtn = document.getElementById("faceRetryBtn");
+const _modelNoticeEls = {
+  face: document.getElementById("faceModelNotice"),
+  hand: document.getElementById("handModelNotice"),
+  pose: document.getElementById("poseModelNotice"),
+};
+const _modelToggleLabels = {
+  hand: handToggle?.closest('label'),
+  pose: poseToggle?.closest('label'),
+};
+
 // ── Head pose ──────────────────────────────────────────────────────────────
 export const yawValue = document.getElementById("yawValue");
 export const pitchValue = document.getElementById("pitchValue");
@@ -315,6 +327,23 @@ export function updateQualityUI(quality, hasFace) {
     qualityScore.textContent = `${pct}%`;
     qualityHint.textContent = quality.hint;
   }
+}
+
+// ── Model failure UI ───────────────────────────────────────────────────────
+export function showModelDisabledUI(model) {
+  const notice = _modelNoticeEls[model];
+  if (notice) notice.hidden = false;
+  if (model === 'face' && faceRetryBtn) faceRetryBtn.hidden = false;
+  if (model === 'hand' && _modelToggleLabels.hand) _modelToggleLabels.hand.hidden = true;
+  if (model === 'pose' && _modelToggleLabels.pose) _modelToggleLabels.pose.hidden = true;
+}
+
+export function hideModelDisabledUI(model) {
+  const notice = _modelNoticeEls[model];
+  if (notice) notice.hidden = true;
+  if (model === 'face' && faceRetryBtn) faceRetryBtn.hidden = true;
+  if (model === 'hand' && _modelToggleLabels.hand) _modelToggleLabels.hand.hidden = false;
+  if (model === 'pose' && _modelToggleLabels.pose) _modelToggleLabels.pose.hidden = false;
 }
 
 // Immediate — called on face-lost to clear all metrics at once.

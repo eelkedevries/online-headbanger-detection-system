@@ -1,6 +1,6 @@
 import {
   video, startBtn, stopBtn, calibrateBtn, distanceRefBtn,
-  handToggle, poseToggle,
+  handToggle, poseToggle, faceRetryBtn,
   trackingState, trackingHint, fpsValue, elapsedTimeValue, neutralState,
   movingTimeValue, stillTimeValue, movementBoutsValue, avgBoutValue,
   maxHeadSpeedValue, movementLoadValue, yawBalanceValue,
@@ -20,7 +20,7 @@ import {
   trackingVars, state,
   logRuntimeError, initInferenceWorker, resetCachedTaskResults,
   renderLoop, stopFrameScheduling, releaseCameraStream, clearMetricsForNoFace,
-  loadHandModel, loadPoseModel, getCurrentFps
+  loadHandModel, loadPoseModel, getCurrentFps, retryModel
 } from './tracker.js';
 import { describeCameraError } from './utils.js';
 import { initRecorder } from './recorder.js';
@@ -364,6 +364,7 @@ document.addEventListener("visibilitychange", () => {
 
 startBtn.addEventListener("click", startCamera);
 stopBtn.addEventListener("click", stopCamera);
+faceRetryBtn?.addEventListener("click", () => retryModel('face'));
 calibrateBtn.addEventListener("click", calibrateNeutralPose);
 distanceRefBtn.addEventListener("click", setReferenceDistance);
 

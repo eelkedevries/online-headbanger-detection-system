@@ -9,6 +9,10 @@ let lastHandProcessTime = -Infinity;
 let lastPoseProcessTime = -Infinity;
 let lastProcessedTimestamp = -Infinity;
 
+let faceDisabled = false;
+let handDisabled = false;
+let poseDisabled = false;
+
 self.onmessage = async (e) => {
   const msg = e.data;
 
@@ -61,6 +65,20 @@ self.onmessage = async (e) => {
     return;
   }
 
+  if (msg.type === 'disableModel') {
+    if (msg.model === 'face') faceDisabled = true;
+    else if (msg.model === 'hand') handDisabled = true;
+    else if (msg.model === 'pose') poseDisabled = true;
+    return;
+  }
+
+  if (msg.type === 'enableModel') {
+    if (msg.model === 'face') faceDisabled = false;
+    else if (msg.model === 'hand') handDisabled = false;
+    else if (msg.model === 'pose') poseDisabled = false;
+    return;
+  }
+
   if (msg.type === 'frame') {
     const { bitmap, timestamp } = msg;
 
@@ -71,27 +89,38 @@ self.onmessage = async (e) => {
     }
     lastProcessedTimestamp = timestamp;
 
-    try {
-      const faceResult = faceLandmarker.detectForVideo(bitmap, timestamp);
+    let faceResult = null;
+    let handResult = null;
+    let poseResult = null;
 
-      let handResult = null;
-      if (handLandmarker && timestamp - lastHandProcessTime >= HAND_UPDATE_INTERVAL_MS) {
+    if (!faceDisabled && faceLandmarker) {
+      try {
+        faceResult = faceLandmarker.detectForVideo(bitmap, timestamp);
+      } catch (err) {
+        self.postMessage({ type: 'inferenceError', model: 'face', message: err?.message || String(err) });
+      }
+    }
+
+    if (!handDisabled && handLandmarker && timestamp - lastHandProcessTime >= HAND_UPDATE_INTERVAL_MS) {
+      try {
         handResult = handLandmarker.detectForVideo(bitmap, timestamp);
         lastHandProcessTime = timestamp;
+      } catch (err) {
+        self.postMessage({ type: 'inferenceError', model: 'hand', message: err?.message || String(err) });
       }
+    }
 
-      let poseResult = null;
-      if (poseLandmarker && timestamp - lastPoseProcessTime >= POSE_UPDATE_INTERVAL_MS) {
+    if (!poseDisabled && poseLandmarker && timestamp - lastPoseProcessTime >= POSE_UPDATE_INTERVAL_MS) {
+      try {
         poseResult = poseLandmarker.detectForVideo(bitmap, timestamp);
         lastPoseProcessTime = timestamp;
+      } catch (err) {
+        self.postMessage({ type: 'inferenceError', model: 'pose', message: err?.message || String(err) });
       }
-
-      bitmap.close();
-      self.postMessage({ type: 'result', face: faceResult, hand: handResult, pose: poseResult, timestamp });
-    } catch (err) {
-      bitmap.close();
-      self.postMessage({ type: 'inferenceError', message: err?.message || String(err) });
     }
+
+    bitmap.close();
+    self.postMessage({ type: 'result', face: faceResult, hand: handResult, pose: poseResult, timestamp });
     return;
   }
 

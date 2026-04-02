@@ -4,7 +4,8 @@ import {
   talkingStateValue, yawningStateValue, trackingState, trackingHint,
   eyeMetricEls, addLog, setStatus, updateMiniMetric, updateAttentionUI,
   updateTrackingState, updatePoseUI, updateEyesUI, updateBasicExpressionsUI,
-  tickTextThrottle, updateQualityUI
+  tickTextThrottle, updateQualityUI,
+  showModelDisabledUI, hideModelDisabledUI
 } from './ui.js';
 import { updateQuality, getQuality, isQualityLow, resetQuality } from './quality.js';
 import { updateVideoDrawRect, clearHeadView, resetSmoothedHeadCrop, drawHeadView } from './overlay.js';
@@ -68,7 +69,11 @@ export const state = {
   handModelLoaded: false,
   poseModelLoaded: false,
   currentResultSeq: 0,
-  lastRenderedResultSeq: 0
+  lastRenderedResultSeq: 0,
+  modelFailureCounts: { face: 0, hand: 0, pose: 0 },
+  modelDisabled: { face: false, hand: false, pose: false },
+  lastModelErrorLogTime: { face: -Infinity, hand: -Infinity, pose: -Infinity },
+  modelDisabledAt: { face: null, hand: null, pose: null }
 };
 
 // ── Logging ────────────────────────────────────────────────────────────────
@@ -80,6 +85,53 @@ export function logRuntimeError(message) {
     state.lastRuntimeErrorTime = now;
   }
 }
+
+const MODEL_ERROR_LOG_INTERVAL_MS = 5000;
+const MODEL_FAILURE_THRESHOLD = 5;
+const MODEL_AUTO_RETRY_MS = 30000;
+
+function logModelError(model, message) {
+  const now = performance.now();
+  if (now - state.lastModelErrorLogTime[model] >= MODEL_ERROR_LOG_INTERVAL_MS) {
+    addLog(`Inference error (${model}): ${message}`, 'error');
+    state.lastModelErrorLogTime[model] = now;
+  }
+}
+
+function disableModel(model) {
+  state.modelDisabled[model] = true;
+  state.modelDisabledAt[model] = performance.now();
+  state.modelFailureCounts[model] = 0;
+  if (trackingVars.worker) trackingVars.worker.postMessage({ type: 'disableModel', model });
+  addLog(`${model} model disabled after repeated inference failures.`, 'error');
+  showModelDisabledUI(model);
+  // Also reflect in enabled state for hand/pose
+  if (model === 'hand') state.handEnabled = false;
+  if (model === 'pose') state.poseEnabled = false;
+}
+
+export function retryModel(model) {
+  state.modelDisabled[model] = false;
+  state.modelDisabledAt[model] = null;
+  state.modelFailureCounts[model] = 0;
+  state.lastModelErrorLogTime[model] = -Infinity;
+  if (trackingVars.worker) trackingVars.worker.postMessage({ type: 'enableModel', model });
+  addLog(`${model} model re-enabled.`);
+  hideModelDisabledUI(model);
+}
+
+// Auto-retry any disabled model after MODEL_AUTO_RETRY_MS cooldown.
+setInterval(() => {
+  const now = performance.now();
+  for (const model of ['face', 'hand', 'pose']) {
+    if (state.modelDisabled[model] && state.modelDisabledAt[model] != null) {
+      if (now - state.modelDisabledAt[model] >= MODEL_AUTO_RETRY_MS) {
+        addLog(`Auto-retrying ${model} model after 30s cooldown.`);
+        retryModel(model);
+      }
+    }
+  }
+}, 2000);
 
 // ── FPS counter ────────────────────────────────────────────────────────────
 export function getCurrentFps() {
@@ -267,7 +319,12 @@ export function initInferenceWorker({ onReady, onError }) {
     } else if (msg.type === 'error') {
       onError(msg.message);
     } else if (msg.type === 'inferenceError') {
-      logRuntimeError(`Inference error: ${msg.message}`);
+      const model = msg.model || 'face';
+      logModelError(model, msg.message);
+      state.modelFailureCounts[model]++;
+      if (state.modelFailureCounts[model] >= MODEL_FAILURE_THRESHOLD && !state.modelDisabled[model]) {
+        disableModel(model);
+      }
     } else if (msg.type === 'result') {
       state.cachedFaceResult = msg.face;
       if (msg.hand !== null && state.handEnabled) state.cachedHandResult = msg.hand;
