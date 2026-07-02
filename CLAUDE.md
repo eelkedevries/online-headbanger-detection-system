@@ -2,19 +2,19 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project summary
-Static client-side webcam app using MediaPipe Face Landmarker for real-time head tracking, facial landmarks (478 3D points), blendshapes (52 coefficients), and heuristic expression classification. Runs entirely in the browser on GitHub Pages — no server, no backend, no dynamic hosting. Models load from Google/jsdelivr CDNs.
+Static client-side webcam app using MediaPipe Face Landmarker for real-time head tracking, facial landmarks (478 3D points), blendshapes (52 coefficients), and heuristic expression classification. Runs entirely in the browser, served as static files at https://eelkedevries.com/online-headbanger-detection-system/ — no server, no backend, no dynamic hosting. Models load from Google/jsdelivr CDNs.
 
 ## Commands
 ```bash
 npm run dev       # start Vite dev server (hot reload)
-npm run build     # build to dist/ for GitHub Pages deployment
+npm run build     # build to dist/ for static deployment
 npm run preview   # serve the dist/ output locally
 ```
 
 No linter or test runner is configured. This is a static browser app — manual browser testing is the primary validation method.
 
 ## Deployment
-`vite.config.js` sets `base: './'` for relative asset paths, which is required for GitHub Pages. Run `npm run build` and push the `dist/` output.
+`vite.config.js` sets `base: './'` for relative asset paths, so the build works from any subfolder. A push to `main` triggers `.github/workflows/deploy-site.yml`, which builds `dist/` and rsyncs it over SSH into the `/online-headbanger-detection-system/` subfolder of the eelkedevries.com document root. The required repository secrets are listed in the workflow header; `scripts/setup-deploy-secrets.sh` sets them via the GitHub CLI.
 
 ## Architecture
 The app is a static, no-backend webcam tracking demo targeting Android Chrome and desktop browsers. MediaPipe inference is offloaded to a Web Worker to avoid blocking the main thread.
@@ -50,7 +50,7 @@ The app is a static, no-backend webcam tracking demo targeting Android Chrome an
 - Head crop smoothing and landmark alignment under movement need real-device confirmation
 
 ## Constraints — follow strictly
-- **Static hosting only.** No change may introduce server dependencies, build-time APIs, or dynamic hosting requirements. Every output must work as static files on GitHub Pages.
+- **Static hosting only.** No change may introduce server dependencies, build-time APIs, or dynamic hosting requirements. Every output must work as static files served from a plain web-server subfolder.
 - **Single HTML page.** All routes, UI panels, and features live in one page.
 - **No new heavyweight dependencies.** Don't add libraries over 50KB without asking first. Prefer vanilla JS and browser APIs.
 - **Preserve existing behaviour.** When refactoring, user-visible output must remain identical unless the prompt explicitly asks for a change.
