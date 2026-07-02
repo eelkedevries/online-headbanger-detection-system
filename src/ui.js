@@ -325,7 +325,7 @@ export function updateQualityUI(quality, hasFace) {
   qualityBarTrack.setAttribute('aria-valuenow', pct);
   qualityBarFill.style.backgroundColor = quality.score >= 0.7
     ? 'var(--ok)' : quality.score >= LOW_QUALITY_THRESHOLD
-    ? 'var(--warn)' : '#e03131';
+    ? 'var(--warn)' : 'var(--error)';
 
   if (_textUpdateDue) {
     qualityScore.textContent = `${pct}%`;
