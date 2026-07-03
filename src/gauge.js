@@ -49,6 +49,10 @@ function scoreToAngleRad(score) {
   return (SWEEP_START_DEG + (score / 100) * SWEEP_TOTAL_DEG) * DEG2RAD;
 }
 
+// Smallest arc radius worth drawing; below this the stage is not yet measured
+// or is too short to render a legible gauge, so callers skip drawing.
+const MIN_RADIUS = 18;
+
 function geometryFor(width, height) {
   const cx = width / 2;
   const cy = height * 0.56;
@@ -61,9 +65,11 @@ function geometryFor(width, height) {
 function drawFace(ctx, width, height) {
   const { cx, cy, radius, labelRadius } = geometryFor(width, height);
   ctx.clearRect(0, 0, width, height);
+  if (radius < MIN_RADIUS) return; // stage too small / not measured yet
 
-  // Zone arcs
-  const zoneWidth = Math.max(radius * 0.13, 7);
+  // Zone arcs. Cap the band width so an inner arc radius never goes negative
+  // on a short stage.
+  const zoneWidth = Math.min(Math.max(radius * 0.13, 7), radius * 0.4);
   for (let i = 0; i < TIERS.length; i++) {
     const from = scoreToAngleRad(TIERS[i].min);
     const to = scoreToAngleRad(i + 1 < TIERS.length ? TIERS[i + 1].min : 100);
@@ -84,6 +90,10 @@ function drawFace(ctx, width, height) {
   ctx.lineWidth = 1;
   ctx.stroke();
 
+  // On a small gauge (mobile), numeric ticks and zone labels crowd the arc;
+  // the tier name shown below the gauge already conveys the zone, so drop them.
+  const showText = radius >= 62;
+
   // Ticks every 10, majors every 20
   for (let score = 0; score <= 100; score += 10) {
     const angle = scoreToAngleRad(score);
@@ -96,7 +106,7 @@ function drawFace(ctx, width, height) {
     ctx.strokeStyle = major ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.25)';
     ctx.lineWidth = major ? 2 : 1;
     ctx.stroke();
-    if (major) {
+    if (major && showText) {
       const textRadius = inner - radius * 0.085;
       ctx.fillStyle = 'rgba(255,255,255,0.45)';
       ctx.font = `${Math.max(9, Math.round(radius * 0.085))}px 'JetBrains Mono', monospace`;
@@ -110,10 +120,11 @@ function drawFace(ctx, width, height) {
   // so they never run off the canvas; the two bottom zones sit below the arc
   // ends instead, where there is free space. A dark outline keeps any label
   // readable even where it brushes the coloured arc.
-  ctx.font = `600 ${Math.max(9, Math.round(radius * 0.11))}px 'Rajdhani', sans-serif`;
+  if (!showText) return;
+  ctx.font = `600 ${Math.max(9, Math.round(radius * 0.1))}px 'Lexend', sans-serif`;
   ctx.textBaseline = 'middle';
   ctx.lineWidth = 3;
-  ctx.strokeStyle = 'rgba(5, 6, 9, 0.85)';
+  ctx.strokeStyle = 'rgba(10, 10, 15, 0.88)';
   ctx.lineJoin = 'round';
   for (let i = 0; i < TIERS.length; i++) {
     const zoneEnd = i + 1 < TIERS.length ? TIERS[i + 1].min : 100;
@@ -176,6 +187,7 @@ export function renderGauge(now) {
 
   ctx.setTransform(gauge.dpr, 0, 0, gauge.dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
+  if (radius < MIN_RADIUS) return; // stage too small / not measured yet
   ctx.drawImage(gauge.face, 0, 0, width, height);
 
   const tierColor = TIERS[gauge.tier].color;
@@ -185,7 +197,7 @@ export function renderGauge(now) {
     const pulse = 0.5 + 0.5 * Math.sin(now / 90);
     ctx.beginPath();
     ctx.arc(cx, cy, radius + 3, scoreToAngleRad(0), scoreToAngleRad(100));
-    ctx.strokeStyle = `rgba(255, 59, 59, ${0.25 + 0.55 * pulse})`;
+    ctx.strokeStyle = `rgba(255, 92, 92, ${0.25 + 0.55 * pulse})`;
     ctx.lineWidth = 3;
     ctx.stroke();
   }
@@ -212,7 +224,7 @@ export function renderGauge(now) {
   // Hub
   ctx.beginPath();
   ctx.arc(cx, cy, Math.max(4, radius * 0.07), 0, Math.PI * 2);
-  ctx.fillStyle = '#0c0e12';
+  ctx.fillStyle = '#0a0a0f';
   ctx.fill();
   ctx.strokeStyle = tierColor;
   ctx.lineWidth = 2;
@@ -220,11 +232,11 @@ export function renderGauge(now) {
 
   // Digital intensity readout under the hub
   ctx.fillStyle = tierColor;
-  ctx.font = `700 ${Math.max(14, Math.round(radius * 0.24))}px 'Orbitron', monospace`;
+  ctx.font = `700 ${Math.max(14, Math.round(radius * 0.24))}px 'JetBrains Mono', monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillText(String(Math.round(gauge.value)), cx, cy + radius * 0.16);
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.font = `600 ${Math.max(8, Math.round(radius * 0.075))}px 'Rajdhani', sans-serif`;
+  ctx.fillStyle = 'rgba(154, 154, 164, 0.75)';
+  ctx.font = `600 ${Math.max(8, Math.round(radius * 0.072))}px 'Lexend', sans-serif`;
   ctx.fillText('INTENSITY', cx, cy + radius * 0.42);
 }

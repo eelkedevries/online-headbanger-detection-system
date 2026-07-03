@@ -151,7 +151,7 @@ function drawShockwaves(now, color) {
 
 function drawLabel(text, x, y, color) {
   overlayCtx.save();
-  overlayCtx.font = "600 12px 'Rajdhani', sans-serif";
+  overlayCtx.font = "600 12px 'Lexend', sans-serif";
   overlayCtx.fillStyle = color;
   overlayCtx.textAlign = 'left';
   overlayCtx.textBaseline = 'bottom';
@@ -173,7 +173,7 @@ export function drawOverlay(landmarks, detectionSnapshot, now) {
     if (!_reducedMotion.matches && video.readyState >= 2) {
       const y = (now / 6) % boxHeight;
       overlayCtx.save();
-      overlayCtx.strokeStyle = 'rgba(57, 217, 138, 0.35)';
+      overlayCtx.strokeStyle = 'rgba(107, 166, 228, 0.32)';
       overlayCtx.lineWidth = 1.5;
       overlayCtx.beginPath();
       overlayCtx.moveTo(0, y);
@@ -212,10 +212,10 @@ export function drawOverlay(landmarks, detectionSnapshot, now) {
   drawShockwaves(now, color);
 
   const strobe = danger && !_reducedMotion.matches ? 0.45 + 0.55 * Math.abs(Math.sin(now / 90)) : 0.95;
-  const box = drawBrackets(topLeft, bottomRight, danger ? '#ff3b3b' : color, strobe);
+  const box = drawBrackets(topLeft, bottomRight, danger ? '#ff5c5c' : color, strobe);
 
   const label = danger
     ? '⚠ NECK HAZARD'
     : (detectionSnapshot?.detected ? 'HEADBANGER LOCKED' : 'TARGET LOCKED');
-  drawLabel(label, box.left, box.top - 6, danger ? '#ff3b3b' : color);
+  drawLabel(label, box.left, box.top - 6, danger ? '#ff5c5c' : color);
 }

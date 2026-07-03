@@ -31,7 +31,13 @@ function resetDetectionUI() {
 // ── Camera start / stop ────────────────────────────────────────────────────
 async function startCamera() {
   if (!state.modelsReady) {
-    setStatus('The detection model is still loading — one moment.', 'warn');
+    // If the model failed to load, let a click retry it; otherwise it is still
+    // in flight.
+    if (workerFailed) {
+      bootWorker(1);
+    } else {
+      setStatus('The detection model is still loading — one moment.', 'warn');
+    }
     return;
   }
   if (trackingVars.mediaStream) return;
@@ -83,29 +89,57 @@ function toggleCamera() {
 
 // ── Gauge render loop (runs even when the camera is off, for the needle) ───
 function gaugeLoop(now) {
-  renderGauge(now);
+  try {
+    renderGauge(now);
+  } catch (err) {
+    console.error(`Gauge render error: ${err?.message || String(err)}`);
+  }
   requestAnimationFrame(gaugeLoop);
 }
 
-// ── Initialisation ─────────────────────────────────────────────────────────
-function init() {
-  initGauge(gaugeCanvas);
-  resizeOverlay();
-  resetDetectionUI();
+// ── Model worker boot, with retry for transient CDN failures ───────────────
+const MAX_WORKER_ATTEMPTS = 4;
+let workerFailed = false;
+
+function bootWorker(attempt) {
+  workerFailed = false;
   setCameraButton(false, true);
-  setStatus('Loading the face-tracking model…');
+  setStatus(attempt > 1
+    ? `Retrying model load (attempt ${attempt}/${MAX_WORKER_ATTEMPTS})…`
+    : 'Loading the face-tracking model…');
 
   initInferenceWorker({
     onReady() {
+      workerFailed = false;
       setCameraButton(false, false);
       setStatus('System armed. Press START CAMERA to begin detection.', 'ok');
     },
     onError(message) {
-      setCameraButton(false, true);
-      setStatus(`Could not load the detection model: ${message}`, 'warn');
+      if (attempt < MAX_WORKER_ATTEMPTS) {
+        const backoffMs = 1500 * attempt;
+        setStatus(`Model load failed (${message}). Retrying in ${Math.round(backoffMs / 1000)}s…`, 'warn');
+        setTimeout(() => bootWorker(attempt + 1), backoffMs);
+      } else {
+        workerFailed = true;
+        // Leave the button enabled so a click can trigger a manual retry.
+        setCameraButton(false, false);
+        setStatus(`Could not load the detection model: ${message}. Check your connection and press the button to retry.`, 'warn');
+      }
     }
   });
+}
 
+// ── Initialisation ─────────────────────────────────────────────────────────
+function init() {
+  // Boot the model first so a rendering hiccup can never block it.
+  bootWorker(1);
+  try {
+    initGauge(gaugeCanvas);
+    resizeOverlay();
+    resetDetectionUI();
+  } catch (err) {
+    console.error(`UI init error: ${err?.message || String(err)}`);
+  }
   requestAnimationFrame(gaugeLoop);
 }
 

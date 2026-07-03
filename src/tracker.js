@@ -117,6 +117,12 @@ export function resetCachedTaskResults() {
 
 // ── Worker initialisation ──────────────────────────────────────────────────
 export function initInferenceWorker({ onReady, onError }) {
+  // Tear down any previous worker so a retry starts from a clean slate.
+  if (trackingVars.worker) {
+    trackingVars.worker.terminate();
+    trackingVars.worker = null;
+  }
+  state.modelsReady = false;
   const worker = new Worker(new URL('./inference-worker.js', import.meta.url), { type: 'module' });
   trackingVars.worker = worker;
 
