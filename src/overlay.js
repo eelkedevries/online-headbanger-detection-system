@@ -1,222 +1,221 @@
-import { FaceLandmarker } from '@mediapipe/tasks-vision';
-import { MAX_RENDER_DPR, HEAD_CROP_SMOOTHING } from './constants.js';
-import { clamp, lerp } from './utils.js';
-import { video, headFeedCanvas, headOverlay } from './ui.js';
+import { MAX_RENDER_DPR, FACE_OVAL_CONNECTORS, LM, TIERS } from './constants.js';
+import { clamp } from './utils.js';
+import { video, overlayCanvas } from './ui.js';
 import { getFaceBounds } from './geometry.js';
 
-// ── Canvas contexts ────────────────────────────────────────────────────────
-export const headFeedCtx = headFeedCanvas.getContext("2d");
-export const headOverlayCtx = headOverlay.getContext("2d");
+// Draws the detection graphics over the mirrored live video feed: targeting
+// brackets around the face, a glowing nose-tip motion trail, and shockwave
+// rings on each counted bang. The <video> is mirrored with CSS, so all x
+// coordinates are mirrored here in code (text would flip if the canvas
+// itself were CSS-mirrored).
 
-// ── Module-level state ─────────────────────────────────────────────────────
-let videoDrawRect = null;
-let smoothedHeadCrop = null;
+const overlayCtx = overlayCanvas.getContext('2d');
 const _reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-// ── Video draw rect ────────────────────────────────────────────────────────
-// Returns a rect in video-native pixel coordinates so that geometry.js
-// measurements (face width, mouth width, etc.) are in native video pixels.
-export function updateVideoDrawRect() {
-  const videoWidth = video.videoWidth || 1280;
-  const videoHeight = video.videoHeight || 720;
-  videoDrawRect = { x: 0, y: 0, width: videoWidth, height: videoHeight };
-  return videoDrawRect;
-}
+const TRAIL_MS = 850;
+const SHOCKWAVE_MS = 480;
 
-export function getVideoDrawRect() {
-  return videoDrawRect ?? updateVideoDrawRect();
-}
+const trail = [];        // { x, y, t } in canvas CSS pixels
+const shockwaves = [];   // { x, y, t }
+let boxWidth = 0;
+let boxHeight = 0;
 
-// ── Head view resize / clear ───────────────────────────────────────────────
-export function resizeHeadView() {
-  const stage = headFeedCanvas.parentElement;
-  const rect = stage.getBoundingClientRect();
+// Measures the stage via getBoundingClientRect (a layout read) — call it only
+// on resize, never per frame. drawOverlay uses the cached boxWidth/boxHeight.
+export function resizeOverlay() {
+  const rect = overlayCanvas.parentElement.getBoundingClientRect();
   const dpr = Math.min(window.devicePixelRatio || 1, MAX_RENDER_DPR);
-  const nextWidth = Math.max(1, Math.round(rect.width * dpr));
-  const nextHeight = Math.max(1, Math.round(rect.height * dpr));
-
-  if (headFeedCanvas.width !== nextWidth || headFeedCanvas.height !== nextHeight) {
-    headFeedCanvas.width = nextWidth;
-    headFeedCanvas.height = nextHeight;
+  const width = Math.max(1, Math.round(rect.width * dpr));
+  const height = Math.max(1, Math.round(rect.height * dpr));
+  if (overlayCanvas.width !== width || overlayCanvas.height !== height) {
+    overlayCanvas.width = width;
+    overlayCanvas.height = height;
   }
-  if (headOverlay.width !== nextWidth || headOverlay.height !== nextHeight) {
-    headOverlay.width = nextWidth;
-    headOverlay.height = nextHeight;
-  }
-
-  headFeedCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  headOverlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  boxWidth = rect.width;
+  boxHeight = rect.height;
+  overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-export function clearHeadView() {
-  headFeedCtx.clearRect(0, 0, headFeedCanvas.width, headFeedCanvas.height);
-  headOverlayCtx.clearRect(0, 0, headOverlay.width, headOverlay.height);
+export function clearOverlay() {
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  trail.length = 0;
+  shockwaves.length = 0;
 }
 
-// ── Head crop smoothing ────────────────────────────────────────────────────
-export function resetSmoothedHeadCrop() {
-  smoothedHeadCrop = null;
-}
-
-function clampHeadCropToFrame(crop, videoWidth, videoHeight) {
-  const size = clamp(crop.size, 1, Math.min(videoWidth, videoHeight));
-  return {
-    x: clamp(crop.x, 0, Math.max(0, videoWidth - size)),
-    y: clamp(crop.y, 0, Math.max(0, videoHeight - size)),
-    size
-  };
-}
-
-function smoothHeadCrop(crop, videoWidth, videoHeight) {
-  const clampedCrop = clampHeadCropToFrame(crop, videoWidth, videoHeight);
-  const previousCrop = smoothedHeadCrop;
-  if (!previousCrop) {
-    smoothedHeadCrop = clampedCrop;
-    return clampedCrop;
-  }
-
-  const nextCrop = clampHeadCropToFrame({
-    x: lerp(previousCrop.x, clampedCrop.x, HEAD_CROP_SMOOTHING),
-    y: lerp(previousCrop.y, clampedCrop.y, HEAD_CROP_SMOOTHING),
-    size: lerp(previousCrop.size, clampedCrop.size, Math.min(0.48, HEAD_CROP_SMOOTHING + 0.08))
-  }, videoWidth, videoHeight);
-
-  smoothedHeadCrop = nextCrop;
-  return nextCrop;
-}
-
-// ── Head crop calculation ──────────────────────────────────────────────────
-function getHeadCropPixels(faceLandmarks, poseResult) {
-  if (!faceLandmarks || video.readyState < 2) return null;
-
+// Maps a normalised landmark to canvas CSS pixels, accounting for
+// object-fit: cover cropping and the CSS mirror on the video element.
+function mapPoint(nx, ny) {
   const videoWidth = video.videoWidth || 1280;
   const videoHeight = video.videoHeight || 720;
-  const faceBounds = getFaceBounds(faceLandmarks);
-
-  let left = faceBounds.minX * videoWidth;
-  let right = faceBounds.maxX * videoWidth;
-  let top = faceBounds.minY * videoHeight;
-  let bottom = faceBounds.maxY * videoHeight;
-
-  const faceWidth = Math.max(1, right - left);
-  const faceHeight = Math.max(1, bottom - top);
-
-  left -= faceWidth * 0.42;
-  right += faceWidth * 0.42;
-  top -= faceHeight * 0.54;
-  bottom += faceHeight * 0.72;
-
-  const poseLandmarks = poseResult?.landmarks?.[0];
-  if (poseLandmarks?.[11] && poseLandmarks?.[12]) {
-    const ls = poseLandmarks[11];
-    const rs = poseLandmarks[12];
-    if ((ls.visibility ?? 1) > 0.35 && (rs.visibility ?? 1) > 0.35) {
-      const shoulderLeft = Math.min(ls.x, rs.x) * videoWidth;
-      const shoulderRight = Math.max(ls.x, rs.x) * videoWidth;
-      const shoulderY = Math.max(ls.y, rs.y) * videoHeight;
-      left = Math.min(left, shoulderLeft - faceWidth * 0.22);
-      right = Math.max(right, shoulderRight + faceWidth * 0.22);
-      bottom = Math.max(bottom, shoulderY + faceHeight * 0.26);
-    }
-  }
-
-  let size = Math.max(right - left, bottom - top);
-  size = Math.min(size * 1.02, Math.min(videoWidth, videoHeight));
-
-  const faceCenterX = ((faceBounds.minX + faceBounds.maxX) / 2) * videoWidth;
-  const faceCenterY = ((faceBounds.minY + faceBounds.maxY) / 2) * videoHeight;
-  const desiredFaceX = 0.50;
-  const desiredFaceY = 0.43;
-
-  let x = faceCenterX - size * desiredFaceX;
-  let y = faceCenterY - size * desiredFaceY;
-
-  x = clamp(x, 0, Math.max(0, videoWidth - size));
-  y = clamp(y, 0, Math.max(0, videoHeight - size));
-
-  return smoothHeadCrop({ x, y, size }, videoWidth, videoHeight);
-}
-
-// ── Head landmark mapping ──────────────────────────────────────────────────
-function mapHeadPoint(landmark, crop, width, height) {
+  const scale = Math.max(boxWidth / videoWidth, boxHeight / videoHeight);
+  const offsetX = (boxWidth - videoWidth * scale) / 2;
+  const offsetY = (boxHeight - videoHeight * scale) / 2;
   return {
-    x: ((landmark.x * (video.videoWidth || 1280)) - crop.x) / crop.size * width,
-    y: ((landmark.y * (video.videoHeight || 720)) - crop.y) / crop.size * height
+    x: boxWidth - (offsetX + nx * videoWidth * scale),
+    y: offsetY + ny * videoHeight * scale
   };
 }
 
-function drawHeadConnectorSet(landmarks, connectorSet, crop, options = {}) {
-  if (!Array.isArray(connectorSet) || connectorSet.length === 0) return;
-  const width = headOverlay.clientWidth;
-  const height = headOverlay.clientHeight;
-  headOverlayCtx.save();
-  headOverlayCtx.lineJoin = "round";
-  headOverlayCtx.lineCap = "round";
-  headOverlayCtx.strokeStyle = options.color ?? "rgba(255,255,255,0.85)";
-  headOverlayCtx.lineWidth = options.lineWidth ?? 1.5;
-  headOverlayCtx.beginPath();
-  for (const connection of connectorSet) {
-    const start = connection.start ?? connection[0];
-    const end = connection.end ?? connection[1];
-    if (start == null || end == null || !landmarks[start] || !landmarks[end]) continue;
-    const p1 = mapHeadPoint(landmarks[start], crop, width, height);
-    const p2 = mapHeadPoint(landmarks[end], crop, width, height);
-    headOverlayCtx.moveTo(p1.x, p1.y);
-    headOverlayCtx.lineTo(p2.x, p2.y);
-  }
-  headOverlayCtx.stroke();
-  headOverlayCtx.restore();
+function drawBrackets(topLeft, bottomRight, color, alpha) {
+  const left = Math.min(topLeft.x, bottomRight.x);
+  const right = Math.max(topLeft.x, bottomRight.x);
+  const top = topLeft.y;
+  const bottom = bottomRight.y;
+  const arm = clamp((right - left) * 0.22, 10, 48);
+
+  overlayCtx.save();
+  overlayCtx.strokeStyle = color;
+  overlayCtx.globalAlpha = alpha;
+  overlayCtx.lineWidth = 2.5;
+  overlayCtx.lineCap = 'round';
+  overlayCtx.shadowColor = color;
+  overlayCtx.shadowBlur = 8;
+  overlayCtx.beginPath();
+  overlayCtx.moveTo(left, top + arm); overlayCtx.lineTo(left, top); overlayCtx.lineTo(left + arm, top);
+  overlayCtx.moveTo(right - arm, top); overlayCtx.lineTo(right, top); overlayCtx.lineTo(right, top + arm);
+  overlayCtx.moveTo(right, bottom - arm); overlayCtx.lineTo(right, bottom); overlayCtx.lineTo(right - arm, bottom);
+  overlayCtx.moveTo(left + arm, bottom); overlayCtx.lineTo(left, bottom); overlayCtx.lineTo(left, bottom - arm);
+  overlayCtx.stroke();
+  overlayCtx.restore();
+  return { left, right, top, bottom };
 }
 
-// ── Head view drawing ──────────────────────────────────────────────────────
-export function drawHeadView(faceLandmarks, poseResult) {
-  resizeHeadView();
-  clearHeadView();
+function drawFaceOval(landmarks, color) {
+  overlayCtx.save();
+  overlayCtx.strokeStyle = color;
+  overlayCtx.globalAlpha = 0.28;
+  overlayCtx.lineWidth = 1.2;
+  overlayCtx.beginPath();
+  for (const [startIdx, endIdx] of FACE_OVAL_CONNECTORS) {
+    const a = landmarks[startIdx];
+    const b = landmarks[endIdx];
+    if (!a || !b) continue;
+    const p1 = mapPoint(a.x, a.y);
+    const p2 = mapPoint(b.x, b.y);
+    overlayCtx.moveTo(p1.x, p1.y);
+    overlayCtx.lineTo(p2.x, p2.y);
+  }
+  overlayCtx.stroke();
+  overlayCtx.restore();
+}
 
-  if (!faceLandmarks || video.readyState < 2) return;
-  const crop = getHeadCropPixels(faceLandmarks, poseResult);
-  if (!crop) return;
+// Two whole-path strokes (a wide low-alpha glow pass, then a bright thin core)
+// instead of one blurred stroke per segment. Canvas shadowBlur is a per-stroke
+// blur pass and is punishingly slow on mobile GPUs — the fake glow reads the
+// same and costs two strokes total regardless of trail length.
+function drawTrail(color) {
+  if (trail.length < 2) return;
+  overlayCtx.save();
+  overlayCtx.lineCap = 'round';
+  overlayCtx.lineJoin = 'round';
+  overlayCtx.strokeStyle = color;
 
-  const width = headFeedCanvas.clientWidth || headFeedCanvas.parentElement.clientWidth || 1;
-  const height = headFeedCanvas.clientHeight || headFeedCanvas.parentElement.clientHeight || 1;
+  overlayCtx.beginPath();
+  overlayCtx.moveTo(trail[0].x, trail[0].y);
+  for (let i = 1; i < trail.length; i++) overlayCtx.lineTo(trail[i].x, trail[i].y);
+  overlayCtx.globalAlpha = 0.22;
+  overlayCtx.lineWidth = 9;
+  overlayCtx.stroke();
+  overlayCtx.globalAlpha = 0.9;
+  overlayCtx.lineWidth = 2.5;
+  overlayCtx.stroke();
 
-  headFeedCtx.drawImage(
-    video,
-    crop.x, crop.y, crop.size, crop.size,
-    0, 0, width, height
-  );
+  overlayCtx.restore();
+}
 
-  drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_FACE_OVAL, crop, { color: "rgba(230, 240, 255, 0.95)", lineWidth: 1.8 });
+export function spawnShockwave() {
+  const last = trail[trail.length - 1];
+  if (!last) return;
+  shockwaves.push({ x: last.x, y: last.y, t: performance.now() });
+  if (shockwaves.length > 6) shockwaves.shift();
+}
 
-  if (!_reducedMotion.matches) {
-    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_TESSELATION, crop, { color: "rgba(120, 140, 150, 0.35)", lineWidth: 0.65 });
-    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYE, crop, { color: "rgba(70, 110, 255, 0.95)", lineWidth: 1.7 });
-    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE, crop, { color: "rgba(70, 255, 110, 0.95)", lineWidth: 1.7 });
-    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW, crop, { color: "rgba(70, 110, 255, 0.95)", lineWidth: 1.3 });
-    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW, crop, { color: "rgba(70, 255, 110, 0.95)", lineWidth: 1.3 });
-    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LEFT_IRIS, crop, { color: "rgba(35, 70, 255, 0.98)", lineWidth: 1.7 });
-    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_RIGHT_IRIS, crop, { color: "rgba(40, 220, 70, 0.98)", lineWidth: 1.7 });
-    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_LIPS, crop, { color: "rgba(255, 210, 160, 0.9)", lineWidth: 1.4 });
-    drawHeadConnectorSet(faceLandmarks, FaceLandmarker.FACE_LANDMARKS_NOSE, crop, { color: "rgba(255, 90, 90, 0.78)", lineWidth: 1.2 });
+function drawShockwaves(now, color) {
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    const age = (now - shockwaves[i].t) / SHOCKWAVE_MS;
+    if (age >= 1) {
+      shockwaves.splice(i, 1);
+      continue;
+    }
+    const radius = 18 + age * Math.min(boxWidth, boxHeight) * 0.32;
+    overlayCtx.save();
+    overlayCtx.beginPath();
+    overlayCtx.arc(shockwaves[i].x, shockwaves[i].y, radius, 0, Math.PI * 2);
+    overlayCtx.strokeStyle = color;
+    overlayCtx.globalAlpha = clamp(1 - age, 0, 1) * 0.7;
+    overlayCtx.lineWidth = 3 * (1 - age) + 0.5;
+    overlayCtx.stroke();
+    overlayCtx.restore();
+  }
+}
+
+function drawLabel(text, x, y, color) {
+  overlayCtx.save();
+  overlayCtx.font = "600 12px 'Rajdhani', sans-serif";
+  overlayCtx.fillStyle = color;
+  overlayCtx.textAlign = 'left';
+  overlayCtx.textBaseline = 'bottom';
+  overlayCtx.shadowColor = 'rgba(0,0,0,0.9)';
+  overlayCtx.shadowBlur = 4;
+  overlayCtx.fillText(text, x, y);
+  overlayCtx.restore();
+}
+
+export function drawOverlay(landmarks, detectionSnapshot, now) {
+  if (boxWidth === 0) return; // stage not measured yet (resizeOverlay pending)
+  overlayCtx.clearRect(0, 0, boxWidth, boxHeight);
+
+  // Age out old trail points every frame regardless of tracking state.
+  while (trail.length > 0 && now - trail[0].t > TRAIL_MS) trail.shift();
+
+  if (!landmarks) {
+    // Idle scan line while searching for a face
+    if (!_reducedMotion.matches && video.readyState >= 2) {
+      const y = (now / 6) % boxHeight;
+      overlayCtx.save();
+      overlayCtx.strokeStyle = 'rgba(57, 217, 138, 0.35)';
+      overlayCtx.lineWidth = 1.5;
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(0, y);
+      overlayCtx.lineTo(boxWidth, y);
+      overlayCtx.stroke();
+      overlayCtx.restore();
+    }
+    trail.length = 0;
+    return;
   }
 
-  if (!_reducedMotion.matches) {
-    const poseLandmarks = poseResult?.landmarks?.[0];
-    if (poseLandmarks?.[11] && poseLandmarks?.[12]) {
-      const ls = poseLandmarks[11];
-      const rs = poseLandmarks[12];
-      if ((ls.visibility ?? 1) > 0.35 && (rs.visibility ?? 1) > 0.35) {
-        const p1 = mapHeadPoint(ls, crop, width, height);
-        const p2 = mapHeadPoint(rs, crop, width, height);
-        headOverlayCtx.save();
-        headOverlayCtx.strokeStyle = "rgba(110, 225, 255, 0.8)";
-        headOverlayCtx.lineWidth = 2;
-        headOverlayCtx.beginPath();
-        headOverlayCtx.moveTo(p1.x, p1.y);
-        headOverlayCtx.lineTo(p2.x, p2.y);
-        headOverlayCtx.stroke();
-        headOverlayCtx.restore();
-      }
+  const tier = detectionSnapshot?.tier ?? 0;
+  const danger = detectionSnapshot?.danger ?? false;
+  const color = TIERS[tier].color;
+
+  const bounds = getFaceBounds(landmarks);
+  const pad = 0.06;
+  const topLeft = mapPoint(bounds.minX - pad, bounds.minY - pad * 1.4);
+  const bottomRight = mapPoint(bounds.maxX + pad, bounds.maxY + pad);
+
+  // Only record a trail point when the nose actually moved. Between inference
+  // results drawOverlay reuses cached landmarks, so pushing every frame would
+  // pile up zero-length duplicates that add cost without changing the picture.
+  const nose = landmarks[LM.noseTip];
+  if (nose) {
+    const p = mapPoint(nose.x, nose.y);
+    const last = trail[trail.length - 1];
+    if (!last || Math.hypot(p.x - last.x, p.y - last.y) > 0.75) {
+      trail.push({ x: p.x, y: p.y, t: now });
+      if (trail.length > 96) trail.shift();
     }
   }
+
+  drawFaceOval(landmarks, color);
+  if (!_reducedMotion.matches) drawTrail(color);
+  drawShockwaves(now, color);
+
+  const strobe = danger && !_reducedMotion.matches ? 0.45 + 0.55 * Math.abs(Math.sin(now / 90)) : 0.95;
+  const box = drawBrackets(topLeft, bottomRight, danger ? '#ff3b3b' : color, strobe);
+
+  const label = danger
+    ? '⚠ NECK HAZARD'
+    : (detectionSnapshot?.detected ? 'HEADBANGER LOCKED' : 'TARGET LOCKED');
+  drawLabel(label, box.left, box.top - 6, danger ? '#ff3b3b' : color);
 }

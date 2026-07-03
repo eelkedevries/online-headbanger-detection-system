@@ -58,22 +58,6 @@ export function lerp(start, end, amount) {
   return start + (end - start) * amount;
 }
 
-export function mean(values) {
-  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
-}
-
-export function stdDev(values, precomputedMean) {
-  if (!values.length) return 0;
-  const m = precomputedMean !== undefined ? precomputedMean : mean(values);
-  return Math.sqrt(values.reduce((s, v) => s + (v - m) * (v - m), 0) / values.length);
-}
-
-export function dist(a, b) {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.hypot(dx, dy);
-}
-
 export function describeCameraError(error) {
   switch (error?.name) {
     case "NotAllowedError":
@@ -93,36 +77,9 @@ export function describeCameraError(error) {
   }
 }
 
-export function formatAngle(value) {
-  return `${value >= 0 ? "" : "-"}${Math.abs(value).toFixed(1)}°`;
-}
-
-export function formatPct01(value) {
-  return `${Math.round(clamp(value, 0, 1) * 100)}%`;
-}
-
 export function formatDurationMs(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
-export function formatSignedCm(value) {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(1)} cm`;
-}
-
-export function averageNormalizedPoint(landmarks, indices) {
-  let x = 0;
-  let y = 0;
-  let count = 0;
-  for (const idx of indices) {
-    const point = landmarks[idx];
-    if (!point) continue;
-    x += point.x;
-    y += point.y;
-    count += 1;
-  }
-  return count ? { x: x / count, y: y / count } : null;
 }
